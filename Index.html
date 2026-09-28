@@ -84,6 +84,19 @@
   .btn-row button { flex: 1; }
   button:disabled { opacity: 0.5; cursor: default; transform: none !important; }
 
+  .remarks-overlay {
+    position: fixed; inset: 0; background: rgba(23, 36, 79, 0.45); z-index: 50;
+    display: flex; align-items: flex-end; justify-content: center; padding: 16px;
+    animation: remarksFadeIn 0.15s ease;
+  }
+  @keyframes remarksFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .remarks-modal {
+    background: var(--card); border-radius: var(--radius); padding: 18px;
+    width: 100%; max-width: 420px; box-shadow: 0 -8px 30px rgba(23, 36, 79, 0.25);
+  }
+  .remarks-modal-title { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
+  .remarks-modal textarea { margin: 0; }
+
   .subtabs { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; }
   .subtab {
     flex: none; padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
@@ -458,6 +471,43 @@
     var div = document.createElement('div');
     div.innerHTML = html.trim();
     return div.firstChild;
+  }
+
+  /**
+   * Small styled bottom-sheet modal replacing window.prompt() everywhere a manager/admin/
+   * finance action needs a short note (reject reason, return-to-employee note, etc.) — the
+   * native prompt() showed an untidy browser dialog with the raw googleusercontent.com domain
+   * in it. onSubmit(text) fires only if the user actually submits; Cancel/backdrop click/Escape
+   * just closes it without calling onSubmit (unlike the old prompt()||'' pattern, which silently
+   * proceeded with an empty reason even on Cancel).
+   */
+  function askRemarks(title, onSubmit, options) {
+    options = options || {};
+    var overlay = el(
+      '<div class="remarks-overlay">' +
+        '<div class="remarks-modal">' +
+          '<div class="remarks-modal-title">' + escapeHtml(title) + '</div>' +
+          '<textarea placeholder="' + escapeHtml(options.placeholder || 'Add a note (optional)') + '"></textarea>' +
+          '<div class="btn-row">' +
+            '<button class="btn-outline remarks-cancel" type="button">Cancel</button>' +
+            '<button class="btn-primary remarks-submit" type="button" style="margin-top:0">' + escapeHtml(options.submitLabel || 'Submit') + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+    document.body.appendChild(overlay);
+    var textarea = overlay.querySelector('textarea');
+    textarea.focus();
+    function close() { overlay.remove(); document.removeEventListener('keydown', onKeydown); }
+    function onKeydown(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKeydown);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    overlay.querySelector('.remarks-cancel').addEventListener('click', close);
+    overlay.querySelector('.remarks-submit').addEventListener('click', function () {
+      var value = textarea.value.trim();
+      close();
+      onSubmit(value);
+    });
   }
 
   function renderCenter(title, body) {
@@ -1364,14 +1414,16 @@
       });
       body.querySelectorAll('.btn-reject').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          var remarks = window.prompt('Reason for rejection (optional):') || '';
-          actOnClaim('handleRejectClaim', btn.getAttribute('data-id'), btn, remarks);
+          askRemarks('Reason for rejection', function (remarks) {
+            actOnClaim('handleRejectClaim', btn.getAttribute('data-id'), btn, remarks);
+          }, { submitLabel: 'Reject' });
         });
       });
       body.querySelectorAll('.btn-return-employee').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          var remarks = window.prompt('What does the employee need to fix?') || '';
-          actOnClaim('handleManagerReturnToEmployee', btn.getAttribute('data-id'), btn, remarks);
+          askRemarks('What does the employee need to fix?', function (remarks) {
+            actOnClaim('handleManagerReturnToEmployee', btn.getAttribute('data-id'), btn, remarks);
+          }, { submitLabel: 'Return' });
         });
       });
       var bulkBtn = document.getElementById('bulk-approve');
@@ -1444,13 +1496,14 @@
       });
       body.querySelectorAll('.btn-return-manager').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          var remarks = window.prompt('What does the Manager need to review?') || '';
-          btn.disabled = true;
-          callServer('handleAdminReturnToManager', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
-            playDone();
-            showToast('Sent back to Manager.');
-            renderPortal();
-          }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+          askRemarks('What does the Manager need to review?', function (remarks) {
+            btn.disabled = true;
+            callServer('handleAdminReturnToManager', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
+              playDone();
+              showToast('Sent back to Manager.');
+              renderPortal();
+            }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+          }, { submitLabel: 'Send' });
         });
       });
       if (forwardable) wireAdminQueue(body);
@@ -1664,24 +1717,26 @@
     });
     body.querySelectorAll('.btn-hold').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var remarks = window.prompt('Reason for hold (optional):') || '';
-        btn.disabled = true;
-        callServer('handleFinanceHold', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
-          playDone();
-          showToast('Claim put on hold.');
-          renderPortal();
-        }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+        askRemarks('Reason for hold', function (remarks) {
+          btn.disabled = true;
+          callServer('handleFinanceHold', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
+            playDone();
+            showToast('Claim put on hold.');
+            renderPortal();
+          }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+        }, { submitLabel: 'Hold' });
       });
     });
     body.querySelectorAll('.btn-return-admin').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var remarks = window.prompt('Reason for returning to Admin:') || '';
-        btn.disabled = true;
-        callServer('handleFinanceReturnToAdmin', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
-          playDone();
-          showToast('Sent back to Admin.');
-          renderPortal();
-        }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+        askRemarks('Reason for returning to Admin', function (remarks) {
+          btn.disabled = true;
+          callServer('handleFinanceReturnToAdmin', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
+            playDone();
+            showToast('Sent back to Admin.');
+            renderPortal();
+          }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+        }, { submitLabel: 'Send' });
       });
     });
   }
