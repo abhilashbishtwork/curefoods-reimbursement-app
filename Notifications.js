@@ -49,6 +49,39 @@ function notifyEmployeeOnPaid_(claim, transactionRef) {
   );
 }
 
+function notifyEmployeeOnReturn_(claim, reason) {
+  notifySafe_(
+    claim['Employee Email'],
+    'Your claim ' + claim['Claim ID'] + ' was sent back for changes',
+    claimSummary_(claim) + ' was sent back by your manager for changes.' +
+    (reason ? '\n\nReason: ' + reason : '') +
+    '\n\nEdit and resubmit it from the Reimbursement Portal (Returned tab).'
+  );
+}
+
+function notifyManagerOnReturn_(claim, reason) {
+  notifySafe_(
+    claim['Manager Email'],
+    'Claim ' + claim['Claim ID'] + ' was sent back to you by Admin',
+    claimSummary_(claim) + ' was sent back by Admin.' +
+    (reason ? '\n\nReason: ' + reason : '') +
+    '\n\nReview it again from the Reimbursement Portal (Returned tab).'
+  );
+}
+
+function notifyAdminOnReturn_(claim, reason) {
+  var adminEmails = getEmployeesWithRole_('Admin');
+  adminEmails.forEach(function (email) {
+    notifySafe_(
+      email,
+      'Claim ' + claim['Claim ID'] + ' was sent back to Admin by Finance',
+      claimSummary_(claim) + ' was sent back by Finance.' +
+      (reason ? '\n\nReason: ' + reason : '') +
+      '\n\nReview it again from the Reimbursement Portal (Returned tab).'
+    );
+  });
+}
+
 function logAction_(actorEmail, action, claimId, details) {
   try {
     getLogsSheet_().appendRow([new Date(), actorEmail, action, claimId || '', details || '']);

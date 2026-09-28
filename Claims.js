@@ -3,7 +3,8 @@ var CLAIM_COLS_ = {
   category: 6, amount: 7, description: 8, expenseDate: 9, status: 10,
   submittedAt: 11, managerRemarks: 12, managerActionAt: 13, adminActionAt: 14,
   transactionRef: 15, paidAt: 16, receiptUrl: 17, overPolicy: 18, batchId: 19,
-  resubmittedFrom: 20, brandName: 21, department: 22
+  resubmittedFrom: 20, brandName: 21, department: 22,
+  returnReason: 23, returnedBy: 24, returnedAt: 25
 };
 
 /**
@@ -73,6 +74,48 @@ function getPolicyMax_(category) {
   return null;
 }
 
+/** Live list of valid claim categories, sourced from the Policy tab (the authoritative list). */
+function getCategoryList_() {
+  var values = getPolicySheet_().getDataRange().getValues();
+  var cats = [];
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][0]) cats.push(String(values[i][0]));
+  }
+  return cats;
+}
+
+/**
+ * Sums an employee's claims in a category for the current IST calendar month, so policy
+ * caps are enforced cumulatively (per month) rather than per individual claim. Rejected
+ * claims don't count as real spend. Pass excludeClaimId when recomputing after an edit to
+ * a claim that's already counted in the sheet, so it isn't added twice.
+ */
+function getMonthlySpend_(employeeId, category, excludeClaimId) {
+  var monthKey = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM');
+  var rows = readClaimRows_();
+  var total = 0;
+  rows.forEach(function (r) {
+    if (r['Employee ID'] !== employeeId) return;
+    if (r['Category'] !== category) return;
+    if (r['Status'] === 'Rejected') return;
+    if (excludeClaimId && r['Claim ID'] === excludeClaimId) return;
+    if (!r['Expense Date']) return;
+    if (Utilities.formatDate(new Date(r['Expense Date']), 'Asia/Kolkata', 'yyyy-MM') !== monthKey) return;
+    total += Number(r['Amount']) || 0;
+  });
+  return total;
+}
+
+/** Nudge shown on the New Claim form: this month's cap, spend-so-far, and remaining for a category. */
+function handleGetCategorySpend(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  var category = payload && payload.category;
+  if (!category) throw new Error('Category is required.');
+  var cap = getPolicyMax_(category);
+  var used = getMonthlySpend_(employee['Employee ID'], category);
+  return { success: true, category: category, cap: cap, used: used, remaining: cap === null ? null : Math.max(0, cap - used) };
+}
+
 /** Finds a same-named subfolder scoped to this parent only (fast), or creates it. */
 function getOrCreateSubfolder_(parentFolder, name) {
   var it = parentFolder.getFoldersByName(name);
@@ -102,6 +145,14 @@ function saveReceipt_(dataUrl, fileName, claimId, employeeName) {
   return file.getUrl();
 }
 
+/** Saves every attached receipt file for one claim, returning their URLs joined with "|" for sheet storage. */
+function saveReceipts_(dataUrls, fileNames, claimId, employeeName) {
+  var urls = dataUrls.map(function (dataUrl, i) {
+    return saveReceipt_(dataUrl, (fileNames && fileNames[i]) || 'receipt', claimId, employeeName);
+  });
+  return urls.join('|');
+}
+
 /** Guards against duplicate submissions caused by client retries after a slow/timed-out request. */
 function checkIdempotency_(key) {
   if (!key) return null;
@@ -120,17 +171,23 @@ function validateClaimPayload_(payload) {
   }
   var amount = Number(payload.amount);
   if (!(amount > 0)) throw new Error('Amount must be a positive number.');
-  if (!payload.receiptDataUrl) throw new Error('A receipt photo is required.');
+  if (!payload.receiptDataUrls || !payload.receiptDataUrls.length) throw new Error('At least one receipt file is required.');
   return amount;
 }
 
-/** Core append-a-claim-row logic shared by single submit, batch submit, and resubmit. */
-function appendClaimRow_(employee, payload, amount, batchId, resubmittedFrom) {
+/**
+ * Core append-a-claim-row logic shared by single submit, batch submit, and resubmit.
+ * extraCommitted lets a batch submission track same-category amounts already appended
+ * earlier in the same batch, so the cap check is cumulative across the whole batch too.
+ */
+function appendClaimRow_(employee, payload, amount, batchId, resubmittedFrom, extraCommitted) {
   var sheet = getClaimsSheet_();
   var claimId = nextClaimId_();
-  var receiptUrl = saveReceipt_(payload.receiptDataUrl, payload.receiptFileName, claimId, employee['Name']);
+  var receiptUrl = saveReceipts_(payload.receiptDataUrls, payload.receiptFileNames, claimId, employee['Name']);
   var policyMax = getPolicyMax_(payload.category);
-  var overPolicy = policyMax !== null && amount > policyMax ? 'Yes' : 'No';
+  var priorSpend = getMonthlySpend_(employee['Employee ID'], payload.category);
+  var projected = priorSpend + (extraCommitted || 0) + amount;
+  var overPolicy = policyMax !== null && projected > policyMax ? 'Yes' : 'No';
   var now = new Date();
   sheet.appendRow([
     claimId, employee['Employee ID'], employee['Name'], employee._email, employee['Manager Email'] || '',
@@ -165,9 +222,13 @@ function handleSubmitBatch(payload, token) {
   if (!hasRole_(employee._roles, 'Employee')) throw new Error('Only Employee-role accounts can submit claims.');
   if (!claims || !claims.length) throw new Error('No claims in batch.');
   var batchId = claims.length > 1 ? 'BATCH-' + Utilities.getUuid().slice(0, 8).toUpperCase() : null;
+  var committedByCategory = {};
   var results = claims.map(function (p) {
     var amount = validateClaimPayload_(p);
-    return appendClaimRow_(employee, p, amount, batchId, null);
+    var extra = committedByCategory[p.category] || 0;
+    var res = appendClaimRow_(employee, p, amount, batchId, null, extra);
+    committedByCategory[p.category] = extra + amount;
+    return res;
   });
   var result = { success: true, claimIds: results.map(function (r) { return r.claimId; }) };
   saveIdempotency_(idempotencyKey, result);
@@ -186,6 +247,16 @@ function handleListTeamClaims(token) {
   if (!hasRole_(employee._roles, 'Manager')) throw new Error('Manager role required.');
   var rows = readClaimRows_().filter(function (r) { return r['Manager Email'] === employee._email; });
   rows.sort(function (a, b) { return new Date(b['Submitted At']) - new Date(a['Submitted At']); });
+  return { success: true, claims: rows };
+}
+
+function handleListManagerReturned(token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Manager')) throw new Error('Manager role required.');
+  var rows = readClaimRows_().filter(function (r) {
+    return r['Manager Email'] === employee._email && r['Status'] === 'Returned to Manager';
+  });
+  rows.sort(function (a, b) { return new Date(b['Returned At']) - new Date(a['Returned At']); });
   return { success: true, claims: rows };
 }
 
@@ -214,7 +285,8 @@ function handleApproveClaim(payload, token) {
       var sheet = getClaimsSheet_();
       sheet.getRange(claim._rowIndex, CLAIM_COLS_.amount).setValue(newAmount);
       var policyMax = getPolicyMax_(claim['Category']);
-      var overPolicy = policyMax !== null && newAmount > policyMax ? 'Yes' : 'No';
+      var priorSpend = getMonthlySpend_(claim['Employee ID'], claim['Category'], claim['Claim ID']);
+      var overPolicy = policyMax !== null && (priorSpend + newAmount) > policyMax ? 'Yes' : 'No';
       sheet.getRange(claim._rowIndex, CLAIM_COLS_.overPolicy).setValue(overPolicy);
       claim['Amount'] = newAmount;
       claim['Over Policy'] = overPolicy;
@@ -268,6 +340,14 @@ function handleListAdminQueue(token) {
   return { success: true, claims: rows };
 }
 
+function handleListAdminReturned(token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
+  var rows = readClaimRows_().filter(function (r) { return r['Status'] === 'Returned to Admin'; });
+  rows.sort(function (a, b) { return new Date(b['Returned At']) - new Date(a['Returned At']); });
+  return { success: true, claims: rows };
+}
+
 function handleListAllClaims(token) {
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
@@ -281,7 +361,9 @@ function handleForwardToFinance(payload, token) {
   if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
   var claim = findClaimRow_(payload.claimId);
   if (!claim) throw new Error('Claim not found.');
-  if (claim['Status'] !== 'Manager Approved') throw new Error('Claim is not awaiting Admin action.');
+  if (['Manager Approved', 'Returned to Admin'].indexOf(claim['Status']) === -1) {
+    throw new Error('Claim is not awaiting Admin action.');
+  }
   var sheet = getClaimsSheet_();
   sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Ready for Finance');
   sheet.getRange(claim._rowIndex, CLAIM_COLS_.adminActionAt).setValue(new Date());
@@ -290,11 +372,125 @@ function handleForwardToFinance(payload, token) {
   return { success: true };
 }
 
+function handleBulkForwardToFinance(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
+  if (!payload || !payload.claimIds || !payload.claimIds.length) throw new Error('No claims selected.');
+  var sheet = getClaimsSheet_();
+  var forwarded = [];
+  payload.claimIds.forEach(function (claimId) {
+    var claim = findClaimRow_(claimId);
+    if (!claim || ['Manager Approved', 'Returned to Admin'].indexOf(claim['Status']) === -1) return;
+    sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Ready for Finance');
+    sheet.getRange(claim._rowIndex, CLAIM_COLS_.adminActionAt).setValue(new Date());
+    notifyFinanceOnForward_(claim);
+    logAction_(employee._email, 'admin_bulk_forward_to_finance', claimId, '');
+    forwarded.push(claimId);
+  });
+  return { success: true, forwardedCount: forwarded.length, forwardedIds: forwarded };
+}
+
+/** Shared "send it back a step" write: sets Status + Return Reason/By/At in one place. */
+function returnClaimRow_(claim, newStatus, actorRole, reason) {
+  var sheet = getClaimsSheet_();
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue(newStatus);
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnReason).setValue(reason || '');
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnedBy).setValue(actorRole);
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnedAt).setValue(new Date());
+}
+
+function handleManagerReturnToEmployee(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Manager')) throw new Error('Manager role required.');
+  var claim = findClaimRow_(payload.claimId);
+  if (!claim) throw new Error('Claim not found.');
+  if (claim['Manager Email'] !== employee._email) throw new Error('Not your team\'s claim.');
+  if (['Pending Manager', 'Returned to Manager'].indexOf(claim['Status']) === -1) {
+    throw new Error('Claim is not awaiting your action.');
+  }
+  returnClaimRow_(claim, 'Returned to Employee', 'Manager', payload.remarks);
+  notifyEmployeeOnReturn_(claim, payload.remarks);
+  logAction_(employee._email, 'manager_return_to_employee', claim['Claim ID'], payload.remarks || '');
+  return { success: true };
+}
+
+function handleAdminReturnToManager(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
+  var claim = findClaimRow_(payload.claimId);
+  if (!claim) throw new Error('Claim not found.');
+  if (['Manager Approved', 'Returned to Admin'].indexOf(claim['Status']) === -1) {
+    throw new Error('Claim is not awaiting Admin action.');
+  }
+  returnClaimRow_(claim, 'Returned to Manager', 'Admin', payload.remarks);
+  notifyManagerOnReturn_(claim, payload.remarks);
+  logAction_(employee._email, 'admin_return_to_manager', claim['Claim ID'], payload.remarks || '');
+  return { success: true };
+}
+
+function handleFinanceHold(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
+  var claim = findClaimRow_(payload.claimId);
+  if (!claim) throw new Error('Claim not found.');
+  if (claim['Status'] !== 'Ready for Finance') throw new Error('Claim is not in the Finance queue.');
+  returnClaimRow_(claim, 'On Hold', 'Finance', payload.remarks);
+  logAction_(employee._email, 'finance_hold', claim['Claim ID'], payload.remarks || '');
+  return { success: true };
+}
+
+function handleFinanceReleaseHold(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
+  var claim = findClaimRow_(payload.claimId);
+  if (!claim) throw new Error('Claim not found.');
+  if (claim['Status'] !== 'On Hold') throw new Error('Claim is not on hold.');
+  var sheet = getClaimsSheet_();
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Ready for Finance');
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnReason).setValue('');
+  logAction_(employee._email, 'finance_release_hold', claim['Claim ID'], '');
+  return { success: true };
+}
+
+function handleFinanceReturnToAdmin(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
+  var claim = findClaimRow_(payload.claimId);
+  if (!claim) throw new Error('Claim not found.');
+  if (['Ready for Finance', 'On Hold'].indexOf(claim['Status']) === -1) {
+    throw new Error('Claim is not in the Finance queue.');
+  }
+  returnClaimRow_(claim, 'Returned to Admin', 'Finance', payload.remarks);
+  notifyAdminOnReturn_(claim, payload.remarks);
+  logAction_(employee._email, 'finance_return_to_admin', claim['Claim ID'], payload.remarks || '');
+  return { success: true };
+}
+
+function handleListFinanceHeld(token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
+  var rows = readClaimRows_().filter(function (r) { return r['Status'] === 'On Hold'; });
+  rows.sort(function (a, b) { return new Date(a['Returned At']) - new Date(b['Returned At']); });
+  attachManagerNames_(rows);
+  return { success: true, claims: rows };
+}
+
+/** Enriches claim rows with the manager's display name (claims only store Manager Email). */
+function attachManagerNames_(rows) {
+  var mgrMap = {};
+  readEmployeeRows_().forEach(function (e) { mgrMap[String(e['Email']).toLowerCase()] = e['Name']; });
+  rows.forEach(function (r) {
+    r['Manager Name'] = mgrMap[String(r['Manager Email']).toLowerCase()] || r['Manager Email'];
+  });
+  return rows;
+}
+
 function handleListFinanceQueue(token) {
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var rows = readClaimRows_().filter(function (r) { return r['Status'] === 'Ready for Finance'; });
   rows.sort(function (a, b) { return new Date(a['Admin Action At']) - new Date(b['Admin Action At']); });
+  attachManagerNames_(rows);
   return { success: true, claims: rows };
 }
 
@@ -303,6 +499,7 @@ function handleListFinanceHistory(token) {
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var rows = readClaimRows_().filter(function (r) { return r['Status'] === 'Paid'; });
   rows.sort(function (a, b) { return new Date(b['Paid At']) - new Date(a['Paid At']); });
+  attachManagerNames_(rows);
   return { success: true, claims: rows };
 }
 
@@ -319,7 +516,7 @@ function handleMarkPaid(payload, token) {
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var claim = findClaimRow_(payload.claimId);
   if (!claim) throw new Error('Claim not found.');
-  if (claim['Status'] !== 'Ready for Finance') throw new Error('Claim is not in the Finance queue.');
+  if (['Ready for Finance', 'On Hold'].indexOf(claim['Status']) === -1) throw new Error('Claim is not in the Finance queue.');
   var ref = (payload.transactionRef || '').trim();
   markPaidRow_(claim, ref);
   logAction_(employee._email, 'finance_mark_paid', claim['Claim ID'], 'ref=' + (ref || '(none)'));
@@ -372,7 +569,9 @@ function handleResubmitClaim(payload, token) {
   var original = findClaimRow_(payload.originalClaimId);
   if (!original) throw new Error('Original claim not found.');
   if (original['Employee Email'] !== employee._email) throw new Error('Not your claim.');
-  if (original['Status'] !== 'Rejected') throw new Error('Only rejected claims can be resubmitted.');
+  if (['Rejected', 'Returned to Employee'].indexOf(original['Status']) === -1) {
+    throw new Error('Only rejected or returned claims can be resubmitted.');
+  }
   var amount = validateClaimPayload_(payload);
   var res = appendClaimRow_(employee, payload, amount, null, original['Claim ID']);
   logAction_(employee._email, 'resubmit', res.claimId, 'from=' + original['Claim ID']);
@@ -393,7 +592,10 @@ function withinExpenseRange_(expenseDateVal, startDate, endDate) {
 function computeDashboardStats_(startDate, endDate) {
   var rows = readClaimRows_().filter(function (r) { return withinExpenseRange_(r['Expense Date'], startDate, endDate); });
   var now = new Date();
-  var pendingStatuses = ['Pending Manager', 'Manager Approved', 'Ready for Finance'];
+  var pendingStatuses = [
+    'Pending Manager', 'Manager Approved', 'Ready for Finance',
+    'Returned to Employee', 'Returned to Manager', 'Returned to Admin', 'On Hold'
+  ];
   var totalPendingAmount = 0, byCategory = {}, teamTotals = {}, aging = [];
 
   rows.forEach(function (r) {
@@ -426,7 +628,7 @@ function computeDashboardStats_(startDate, endDate) {
 
 function handleGetDashboardStats(payload, token) {
   var employee = requireActiveEmployee_(token);
-  if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
+  if (!hasRole_(employee._roles, 'Admin') && !hasRole_(employee._roles, 'Finance')) throw new Error('Admin or Finance role required.');
   var startDate = (payload && payload.startDate) || '';
   var endDate = (payload && payload.endDate) || '';
   var stats = computeDashboardStats_(startDate, endDate);
@@ -522,7 +724,7 @@ function buildReportWorkbook_(rows, rangeLabel) {
 
 function handleEmailDashboardReport(payload, token) {
   var employee = requireActiveEmployee_(token);
-  if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
+  if (!hasRole_(employee._roles, 'Admin') && !hasRole_(employee._roles, 'Finance')) throw new Error('Admin or Finance role required.');
   var startDate = (payload && payload.startDate) || '';
   var endDate = (payload && payload.endDate) || '';
   var recipient = (payload && payload.recipient) || employee._email;
@@ -569,4 +771,133 @@ function handleEmailDashboardReport(payload, token) {
 
   logAction_(employee._email, 'admin_email_report', '', 'range=' + rangeLabel + ' to=' + recipient + ' claims=' + rows.length);
   return { success: true, recipient: recipient };
+}
+
+// ---------- Bulk upload (Employee) ----------
+
+var BULK_TEMPLATE_HEADERS_ = ['Category', 'Amount', 'Expense Date', 'Description'];
+
+/**
+ * Builds the downloadable bulk-upload template as a real .xlsx: a fresh Google Sheet
+ * with the exact expected headers, a Category dropdown (data validation) sourced from
+ * the live Policy tab, and a sample row — then exported and trashed. Attachments are
+ * never part of this file; those are still attached per-claim in the app after upload.
+ *
+ * Building + exporting a temp Sheet is a handful of sequential Drive/Sheets round trips
+ * (confirmed live: ~5-6s per request), which felt slow for a file that's identical for
+ * every employee until the Policy category list changes. Caching the finished base64
+ * (keyed on the category list itself, so a Policy change invalidates it automatically)
+ * makes every request after the first one instant.
+ */
+function handleGetBulkTemplate(token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Employee')) throw new Error('Employee role required.');
+
+  var categories = getCategoryList_();
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'bulk_template_v1_' + Utilities.base64EncodeWebSafe(categories.join('|'));
+  var cached = cache.get(cacheKey);
+  if (cached) {
+    return { success: true, base64: cached, fileName: 'Curefoods_Bulk_Claim_Template.xlsx' };
+  }
+
+  var ss = SpreadsheetApp.create('CFI Bulk Claim Template');
+  var sheet = ss.getSheets()[0];
+  sheet.setName('Claims');
+  sheet.getRange(1, 1, 1, BULK_TEMPLATE_HEADERS_.length).setValues([BULK_TEMPLATE_HEADERS_]).setFontWeight('bold');
+  sheet.getRange(2, 1, 1, 4).setValues([[
+    categories[0] || 'Other', 1500, Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd'),
+    'Example row - delete before uploading'
+  ]]);
+  if (categories.length) {
+    var catRule = SpreadsheetApp.newDataValidation().requireValueInList(categories, true).setAllowInvalid(false).build();
+    sheet.getRange(2, 1, 200, 1).setDataValidation(catRule);
+  }
+  sheet.getRange(2, 3, 200, 1).setNumberFormat('yyyy-mm-dd');
+  SpreadsheetApp.flush();
+
+  var xlsxBlob = exportSpreadsheetBlob_(ss.getId(), 'xlsx', '');
+  var base64 = Utilities.base64Encode(xlsxBlob.getBytes());
+  DriveApp.getFileById(ss.getId()).setTrashed(true);
+
+  try {
+    cache.put(cacheKey, base64, 21600); // 21600s = 6h, CacheService's max TTL
+  } catch (e) {
+    Logger.log('Bulk template cache put failed (serving uncached this time): ' + e.message);
+  }
+  return { success: true, base64: base64, fileName: 'Curefoods_Bulk_Claim_Template.xlsx' };
+}
+
+/** Converts uploaded .xlsx bytes into a temporary native Google Sheet via the Advanced Drive Service, so its cells can be read with SpreadsheetApp. Caller must trash the returned id. */
+function convertXlsxBytesToSheet_(bytes, name) {
+  var blob = Utilities.newBlob(bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', name || 'upload.xlsx');
+  var resource = { title: name || 'CFI Bulk Upload Temp', mimeType: 'application/vnd.google-apps.spreadsheet' };
+  var file = Drive.Files.insert(resource, blob, { convert: true });
+  return file.id;
+}
+
+/**
+ * Parses + strictly validates an uploaded bulk-claim file. Any deviation from the
+ * template (wrong headers, unrecognized category, bad amount/date) rejects the whole
+ * file with a specific reason rather than silently dropping or auto-fixing rows —
+ * the user re-downloads the template and re-uploads.
+ */
+function handleParseBulkUpload(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Employee')) throw new Error('Employee role required.');
+
+  var dataUrl = payload && payload.fileDataUrl;
+  var match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl || '');
+  if (!match) throw new Error('Could not read the uploaded file. Please choose a valid .xlsx file.');
+  var bytes = Utilities.base64Decode(match[2]);
+
+  var sheetId;
+  try {
+    sheetId = convertXlsxBytesToSheet_(bytes, 'CFI Bulk Upload - ' + employee._email);
+  } catch (e) {
+    throw new Error('Could not read that file as an Excel spreadsheet. Please upload the unmodified .xlsx template.');
+  }
+
+  try {
+    var sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
+    var values = sheet.getDataRange().getValues();
+    if (!values.length) throw new Error('That file is empty.');
+
+    var headers = values[0].map(function (h) { return String(h || '').trim(); });
+    var headersMatch = BULK_TEMPLATE_HEADERS_.every(function (h, i) { return headers[i] === h; });
+    if (!headersMatch) {
+      throw new Error('This file\'s columns don\'t match the template (expected: ' + BULK_TEMPLATE_HEADERS_.join(', ') +
+        '). Please download the template again and re-upload without changing the headers.');
+    }
+
+    var categories = getCategoryList_();
+    var rows = [];
+    for (var i = 1; i < values.length; i++) {
+      var r = values[i];
+      if (r.every(function (v) { return v === '' || v === null; })) continue;
+      var rowNum = i + 1;
+      var category = String(r[0] || '').trim();
+      if (categories.indexOf(category) === -1) {
+        throw new Error('Row ' + rowNum + ': "' + category + '" is not a recognized category. Valid categories: ' +
+          categories.join(', ') + '. Please fix and re-upload.');
+      }
+      var amount = Number(r[1]);
+      if (!(amount > 0)) throw new Error('Row ' + rowNum + ': Amount must be a positive number.');
+      var expenseDate;
+      if (Object.prototype.toString.call(r[2]) === '[object Date]') {
+        expenseDate = Utilities.formatDate(r[2], 'Asia/Kolkata', 'yyyy-MM-dd');
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(String(r[2] || '').trim())) {
+        expenseDate = String(r[2]).trim();
+      } else {
+        throw new Error('Row ' + rowNum + ': Expense Date must be a valid date (YYYY-MM-DD).');
+      }
+      rows.push({ category: category, amount: amount, expenseDate: expenseDate, description: String(r[3] || '').trim() });
+    }
+    if (!rows.length) throw new Error('No data rows found below the header. Fill in at least one row and re-upload.');
+    if (rows.length > 100) throw new Error('Too many rows (' + rows.length + '). Please upload at most 100 claims at a time.');
+
+    return { success: true, rows: rows };
+  } finally {
+    try { DriveApp.getFileById(sheetId).setTrashed(true); } catch (e2) { /* best-effort cleanup */ }
+  }
 }

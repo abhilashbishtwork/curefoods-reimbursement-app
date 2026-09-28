@@ -25,14 +25,24 @@
 
   .topbar {
     position: sticky; top: 0; z-index: 5; color: #fff;
-    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+    background: var(--brand);
     padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
     border-bottom: 3px solid var(--highlight);
-    box-shadow: 0 6px 18px rgba(23, 36, 79, 0.28);
+    box-shadow: 0 6px 18px rgba(23, 36, 79, 0.22);
   }
   .topbar .title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; letter-spacing: 0.2px; }
-  .topbar .title img { height: 24px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2)); }
+  .topbar .title img { height: 17px; display: block; }
   .topbar .user { font-size: 12px; opacity: 0.92; text-align: right; line-height: 1.4; }
+
+  .finance-row { padding: 12px 14px; }
+  .finance-row-top { display: flex; align-items: flex-start; gap: 8px; }
+  .finance-row-main { flex: 1; }
+  .finance-row-person { font-size: 14px; font-weight: 700; }
+  .finance-row-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .finance-row-utr { margin-top: 8px; }
+  .finance-row-utr input { font-size: 13px; padding: 8px 10px; }
+  .select-all-row { font-size: 13px; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .select-all-row input { width: auto; }
 
   .content { padding: 16px; flex: 1; }
 
@@ -91,6 +101,10 @@
   .claim-card.status-Ready-for-Finance { border-left-color: #7d3fc9; background: linear-gradient(180deg, #f6f0fd 0%, #fff 60px); }
   .claim-card.status-Paid { border-left-color: var(--brand); background: linear-gradient(180deg, #eef1fb 0%, #fff 60px); }
   .claim-card.status-Rejected { border-left-color: var(--danger); background: linear-gradient(180deg, #fdf0ee 0%, #fff 60px); }
+  .claim-card.status-Returned-to-Employee,
+  .claim-card.status-Returned-to-Manager,
+  .claim-card.status-Returned-to-Admin,
+  .claim-card.status-On-Hold { border-left-color: var(--warn); background: linear-gradient(180deg, #fdf8ee 0%, #fff 60px); }
 
   .claim-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
   .claim-check { padding-top: 3px; }
@@ -125,11 +139,16 @@
     transition: color 0.12s ease;
   }
   .navitem .icon {
-    font-size: 18px; display: inline-flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 999px; margin-bottom: 2px; transition: background 0.12s ease;
+    font-size: 13px; font-weight: 800; font-family: inherit; display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 9px; margin-bottom: 3px; transition: background 0.12s ease, color 0.12s ease;
   }
+  .icon-navy { background: #e3e8f5; color: var(--brand); }
+  .icon-blue { background: #e5eefd; color: #2d6cdf; }
+  .icon-purple { background: #f1e9fb; color: #7d3fc9; }
+  .icon-gold { background: #fdf3e0; color: #92650f; }
+  .icon-teal { background: #e2f9fb; color: #0e7a8c; }
   .navitem.active { color: var(--accent); }
-  .navitem.active .icon { background: rgba(219, 39, 119, 0.12); }
+  .navitem.active .icon { background: var(--accent); color: #fff; }
 
   .center-screen {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -172,6 +191,98 @@
   .stat-tile .value { font-size: 21px; font-weight: 800; margin-top: 4px; color: var(--brand); }
   .stat-list-row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); }
   .stat-list-row:last-child { border-bottom: none; }
+
+  .policy-hero {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff;
+    border-radius: var(--radius); padding: 18px 18px 16px; margin-bottom: 14px;
+    box-shadow: 0 6px 18px rgba(23, 36, 79, 0.22);
+  }
+  .policy-hero h2 { margin: 0 0 6px; font-size: 18px; }
+  .policy-hero p { margin: 0; font-size: 12.5px; opacity: 0.9; line-height: 1.5; }
+  .policy-hero .tag {
+    display: inline-block; margin-top: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px;
+    background: rgba(255,255,255,0.16); padding: 4px 10px; border-radius: 999px;
+  }
+
+  .policy-section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin: 18px 2px 8px; }
+  .policy-section-title:first-of-type { margin-top: 2px; }
+
+  .policy-tier-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
+  .policy-stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px; }
+  .policy-stat .lab { font-size: 11px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+  .policy-stat .val { font-size: 12.5px; color: var(--text); line-height: 1.45; }
+  .policy-tier-note { font-size: 11.5px; color: var(--muted); font-style: italic; margin: 10px 2px 0; line-height: 1.4; }
+
+  .policy-steps { position: relative; padding-left: 6px; }
+  .policy-step { display: flex; gap: 12px; padding-bottom: 16px; position: relative; }
+  .policy-step:last-child { padding-bottom: 0; }
+  .policy-step::before {
+    content: ''; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--border);
+  }
+  .policy-step:last-child::before { display: none; }
+  .policy-step .num {
+    flex: none; width: 27px; height: 27px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 1;
+  }
+  .policy-step .body { padding-top: 3px; }
+  .policy-step .body b { display: block; font-size: 13px; margin-bottom: 2px; }
+  .policy-step .body span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+  .policy-role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .policy-role-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .policy-role-card .ico {
+    width: 32px; height: 32px; border-radius: 9px; margin: 0 auto 8px; font-size: 14px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .policy-role-card b { display: block; font-size: 11.5px; margin-bottom: 3px; }
+  .policy-role-card span { font-size: 10px; color: var(--muted); line-height: 1.35; display: block; }
+
+  .policy-note {
+    background: #fdf3e0; border: 1px solid #f3e2bb; color: #8a5d15; border-radius: 12px;
+    padding: 11px 13px; font-size: 12px; line-height: 1.5; margin-top: 10px;
+  }
+  .policy-note b { color: #6b4710; }
+  .policy-note.pink { background: #fdf2f7; border-color: #f6d5e6; color: var(--accent-dark); }
+  .policy-note.pink b { color: var(--accent-dark); }
+
+  .accordion { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 10px; background: var(--card); }
+  .accordion-head {
+    display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; cursor: pointer;
+    font-size: 13px; font-weight: 700; color: var(--text);
+  }
+  .accordion-head .chev { color: var(--muted); font-size: 11px; transition: transform 0.15s ease; }
+  .accordion.open .accordion-head .chev { transform: rotate(180deg); }
+  .accordion-body { display: none; padding: 0 14px 14px; }
+  .accordion.open .accordion-body { display: block; }
+
+  .policy-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: -2px; padding: 2px; }
+  .policy-table { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 11px; }
+  .policy-table th, .policy-table td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; white-space: nowrap; }
+  .policy-table th { background: #f4f6fb; color: var(--muted); font-weight: 700; font-size: 10px; text-transform: uppercase; }
+  .policy-table td.center, .policy-table th.center { text-align: center; }
+
+  .policy-cities { font-size: 11.5px; color: var(--muted); line-height: 1.6; margin-top: 8px; }
+  .policy-cities b { color: var(--text); }
+
+  .claim-entry { border-top: 1px dashed var(--border); margin-top: 16px; padding-top: 14px; }
+  .claim-entry:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .claim-entry-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+  .claim-entry-head span { font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+  .claim-entry-remove { background: none; border: none; color: var(--danger); font-size: 12px; font-weight: 700; padding: 0; width: auto; }
+  .claim-file-status { font-size: 12px; color: var(--brand); font-weight: 600; margin: 4px 0 0; min-height: 16px; }
+  .cap-nudge { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .out-of-policy-note {
+    display: none; background: #fdf0ee; border: 1px solid #f5d5cf; color: var(--danger); border-radius: 10px;
+    padding: 8px 12px; font-size: 12px; font-weight: 700; margin: 6px 0 0;
+  }
+  .out-of-policy-note.show { display: block; }
+  .claim-add-more {
+    width: 100%; margin-top: 16px; border: 2px dashed var(--accent); color: var(--accent-dark);
+    background: rgba(219, 39, 119, 0.04); font-weight: 700; font-size: 15px; padding: 12px 16px; border-radius: 10px;
+    cursor: pointer; transition: background 0.12s ease, transform 0.12s ease;
+  }
+  .claim-add-more:active { background: rgba(219, 39, 119, 0.12); transform: scale(0.98); }
+  .btn-danger-confirm { background: linear-gradient(135deg, var(--danger) 0%, #96271c 100%) !important; box-shadow: 0 4px 12px rgba(192, 57, 43, 0.35) !important; }
 </style>
 
 <div id="app"></div>
@@ -182,14 +293,59 @@
     'Manager Approved': 'With Admin',
     'Rejected': 'Rejected',
     'Ready for Finance': 'With Finance',
-    'Paid': 'Paid'
+    'Paid': 'Paid',
+    'Returned to Employee': 'Returned to You',
+    'Returned to Manager': 'Returned to Manager',
+    'Returned to Admin': 'Returned to Admin',
+    'On Hold': 'On Hold'
   };
   var ROLE_ORDER = ['Employee', 'Manager', 'Admin', 'Finance'];
-  var ROLE_ICON = { Employee: '📄', Manager: '✅', Admin: '📋', Finance: '💰' };
+  var ROLE_BADGE = {
+    Employee: { letter: 'E', tint: 'navy' },
+    Manager: { letter: 'M', tint: 'blue' },
+    Admin: { letter: 'A', tint: 'purple' },
+    Finance: { letter: 'F', tint: 'gold' }
+  };
+  var CATEGORY_OPTIONS = [
+    'Fuel', 'Accommodation', 'Meals', 'Local Conveyance', 'Outstation Travel',
+    'Internet / Telephone / Mobile Bill', 'Office Supplies', 'IT Assets', 'Training',
+    'Medical', 'Petty Cash', 'Other Business Expenses'
+  ];
+  var POLICY_TIERS = [
+    {
+      key: 'l1', label: '1A · 1B · 1C', title: 'HCM, P&D, Commi (Kitchen Staff)',
+      travel: 'Actual spend. Up to 500KM by train/bus — original tickets required for claim.',
+      food: 'Rs 600/day (Tier 1 cities), Rs 500/day (Tier 2) — flat allowance, no bills needed.',
+      conveyance: 'Actuals reimbursed (public transport, or Ola/Uber if unavailable). Personal vehicle: Rs 5.5/km (2-wheeler), Rs 10/km (4-wheeler). Capped at Rs 2,500/month.',
+      hotel: 'Rs 1,200/day (Tier 1 cities), Rs 700/day (Tier 2) — flat allowance, no bills needed.',
+      other: 'Reimbursed on actuals with bills, pre-approved by manager.'
+    },
+    {
+      key: 'l2', label: '2A · 2B', title: 'Executives, Managerial, AKM, KM, TL, Sous Chef, Project Manager/Lead',
+      travel: 'Actual spend. Up to 500KM by train/bus — original tickets required for claim.',
+      food: 'Rs 600/day (Tier 1 cities), Rs 500/day (Tier 2) — flat allowance, no bills needed.',
+      conveyance: 'Actuals reimbursed (public transport, or Ola/Uber if unavailable). Personal vehicle: Rs 5.5/km (2-wheeler), Rs 10/km (4-wheeler). Capped at Rs 2,500/month.',
+      hotel: 'Rs 1,800/day (Tier 1 cities), Rs 800/day (Tier 2) — flat allowance, no bills needed.',
+      other: 'Reimbursed on actuals with bills, pre-approved by manager.'
+    },
+    {
+      key: 'l3', label: '3A · 3B · 4A', title: 'Managerial & Leadership Team (incl. Central Team)',
+      travel: 'Actual spend. Up to 500KM by train/bus; above 500KM by flight (lowest fare, economy) + airport cab on actuals. Original tickets/boarding pass required.',
+      food: 'Rs 800/day — flat allowance, no bills needed.',
+      conveyance: 'Ola/Uber bills reimbursed on actuals. Personal vehicle: Rs 5.5/km (2-wheeler), Rs 10/km (4-wheeler). Capped at Rs 2,500/month.',
+      hotel: 'Rs 2,800/day — flat allowance, no bills needed.',
+      other: 'Reimbursed on actuals with bills.'
+    }
+  ];
   var TOKEN_KEY = 'cfi_auth_token';
   var SUBMIT_FNS_ = { handleSubmitClaim: true, handleSubmitBatch: true, handleResubmitClaim: true, handleEmailDashboardReport: true };
 
-  var state = { user: null, activeRole: null, activeSubtab: {}, batch: [], selectedFinance: {}, resubmitFrom: null, dashboardRange: { startDate: '', endDate: '' } };
+  var state = {
+    user: null, activeRole: null, activeSubtab: {}, selectedFinance: {}, selectedAdmin: {}, resubmitFrom: null,
+    dashboardRange: { startDate: '', endDate: '' }, policyOpen: {},
+    claimEntries: null, claimCategory: null, categorySpend: null, bulkEntries: null,
+    myClaimsRange: { startDate: '', endDate: '' }
+  };
   var AUTH_TOKEN = localStorage.getItem(TOKEN_KEY) || '';
 
   function newIdempotencyKey() {
@@ -253,6 +409,67 @@
     });
     serverQueue_ = task.catch(function () {});
     return task;
+  }
+
+  var audioCtx_ = null;
+  function getAudioCtx_() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx_) audioCtx_ = new Ctx();
+    if (audioCtx_.state === 'suspended') audioCtx_.resume();
+    return audioCtx_;
+  }
+
+  function playTone_(ctx, freq, startTime, duration, gainPeak) {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
+
+  /** Quick upward pitch sweep — plays whenever something new is posted (submit/resubmit). */
+  function playSwoosh() {
+    var ctx = getAudioCtx_();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(1100, now + 0.16);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.16, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+
+  /** Crisp two-note pop — plays whenever an item is resolved/closed (approve, reject, forward, paid). */
+  function playDone() {
+    var ctx = getAudioCtx_();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    playTone_(ctx, 880, now, 0.09, 0.14);
+    playTone_(ctx, 1180, now + 0.06, 0.12, 0.12);
+  }
+
+  /** Short ascending chime — plays once when the app finishes loading and is ready to use. */
+  function playChime() {
+    var ctx = getAudioCtx_();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    playTone_(ctx, 523.25, now, 0.18, 0.1);
+    playTone_(ctx, 659.25, now + 0.09, 0.18, 0.1);
+    playTone_(ctx, 783.99, now + 0.18, 0.28, 0.11);
   }
 
   function showToast(msg) {
@@ -351,6 +568,7 @@
     state.user = res;
     state.activeRole = ROLE_ORDER.filter(function (r) { return res.roles.indexOf(r) !== -1; })[0];
     renderApp();
+    playChime();
   }
 
   // ---------- Login (non-Google fallback via email OTP) ----------
@@ -406,7 +624,7 @@
     app.innerHTML = '';
     app.appendChild(el(
       '<div class="topbar">' +
-        '<div class="title"><img src="data:image/png;base64,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" alt="Curefoods"><span>Expense Management Portal</span></div>' +
+        '<div class="title"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAqkAAADICAYAAADLEXgRAAAIC0lEQVR42u3dwY7bOgwFULHI//8yu53unKktk+I5QDcF3puIpuhrJZlGZi4AAKjkjxIAACCkAgCAkAoAgJAKAABCKgAAQioAAAipAAAIqQAAIKQCAICQCgCAkAoAAEIqAABCKgAACKkAAAipAAAgpAIAIKQCAICQCgAAQioAAEIqAAAIqQAACKkAACCkAgAgpAIAgJAKAABCKgAAQioAAAipAAAIqQAAIKQCACCkAgCAkAoAgJAKAABCKgAACKkAAAipAAAgpAIAIKQCAICQCgCAkAoAAEIqAAAIqQAACKkAACCkAgAgpAIAgJAKAICQCgAAQioAAEIqAAAIqQAAIKQCACCkAgCAkAoAgJAKAABCKgAAQioAAAipAAAgpAIAIKQCAICQCgCAkAoAAEIqAABCKgAACKkAAAipAAAgpAIAgJAKAICQCgAAv/RRgu3ypv9PKCVgBqkTrXpCP3xTrMxUhR6DbnfTZ9FNmC+8pgqbJA7q113rP2ktE2eQeX3eHg89IbAKqTMG3ZNNX/Fp8Y3XNC3kVB8GMXQtgsiZtYph96ZuvZJqIaQKp/UavupbXCnoPFrjLoMghq1l4gwyrz2ETu4LYXX5TOqEzZ8vN3ze+LPTNX28xphBp82gbrUKPfz6PUsdlm/3uznsf3152GnahBPDJ67vCTVJvdhyBp2yV7q+vm57PM2V5W1uIfXogafhPSxhBnmtHsT0d996p5DKpMYx/PQlrvW0150Cml43M4VUGwbADKr0+tVKz6utkGqjgB7F9S21DrXS+2oqpNogoFdxXb2Naz3qgJBqYwBmkHWplb2gjkKqDaEE6FtcS2/jYk8gpLL8SxYwoIftx3tDh9/zrGdOq18IqRgIgBmkTtYKQqpB4IkMPewUVRgRvtRKHdyzhVTAwLYWb+GiZ2jmowROoEDflluLGy9XesRsr7Gn4uaf5boKqWNuXJq9x7VO4dJaiq9vV49+E75yeK2q900eHtjjwt974BRS252ixg3/ncY/c+in05bxp1VVZ1AMnT2Va1V9f5/cM7GeuW+b10LqEacyVza/ZgfungtVgkc2mNfhQGH0A863dXDPFlLLfGblyabX6MCOB+WnZubbJ4Rd6tSx/9JndN2jl2/3j2vI+PEHvYIH5R29Ffbg63XyC+p9wVpIxRAHzKEiISAb1sm9QFBFSNVsABsDgfClVpPv4yk/LJ9JNZAwZNv0YNoz4x6UT/jcZfgtFEf3zNM/z/dClpNU4PygloKL178cXmCOCalKYBCBU8XlY0Cze8O85smwao4sb/e7EaEPqXhdpgSg8I9RMPwt/ytzRD8vJ6ngrSHhcPo63Ay904Z5v5ykAhWDihuhL7YANb/k52R1OUkFABwIOFkVUoHl7USwV3DNfSdBSAVYTn8AQVVIBQxfXDOw7wRVIRUAhAIEVSEVMHABzE1BVUgFBFSAd+dgFJyhKaQCAqo1LW9j49pQNKwKqYAwB3obSoXVFFIJjYXetS5azDzzWs84WRVSAQRUIQDXBGH1HR8l8O91o8eEzBI1icYBRvCy5ybWOmWJ5SQVQIAQIA+ok2txVi2cri4nqU66QI85pZoXNmLtP3W2l+zV//m5HkKWk9SOzb3zLYGff96ugQ3rVMJcOLs/9J1aqYWTVSHVprwUTq/+/eS6GSBUvpl2elhO17xErUJ9bz3cueO+6T4jpBp+TUJougn+84QdDz5tO6lhV49kkS+a7X7wty/PCuvZ/P4qpC5v7VXcpN9unrc3mo0OdeZQ2s/bHrLTx1HKBr486DBo+eIUT22O2Dgwo8mXe3JQGElf/KDJDKr4y/p3/NquLFonb+3/Pqznw32gB4TUVsGhSjNfCTDhSxb4HPGoOWRf9qxTqEWJtYe6LG/3w6Fhx2dTv/tiA/aohxh2n6K+PZ9CSGVKQ7jRO/WxLnMIvWEuIqQaAi03arieXhs02gf2kJ4RUIVUwKmBdXmAsU61AiHVMLD2KWtx40FvqJM1OkV1zYVUDcJymoo5dN7a1Ml+QEi1IazbGtQbSva8z9TrGWsVUm0M6/bal9NU9HPF9dj79oC1Cqk2yJB1hGvldaM/mq3jlHeCzAS//UFIZUyzh02+nKYiuMyYoerkvmu9QqoNM+R1d/mWfOgvzCGvWZ08kDWsqWsvpI78Qs6EjW5zL6epw3qq0403lodXc+z9L9W5hwmpnvIOf31hc3tLFHOoYX/F0OsY+tk9rKOPEtzaXDmo4aus+cmhngU+B+z00zDvOodCnfRz4Tqcfg87oyky3QPXOW+rxqA1R5M1RaHaxiEfB4hG184cUqdKdUoPnKVqI6AKqSMaf9JG7zTYo1Bd44DPrcbGmoUZNLJeE2qVQumrNRJMhdTjGz+GrdmmBnvSvKZrL+gBIRUAgOXb/QAAIKQCACCkAgCAkAoAAEIqAABCKgAACKkAAAipAAAgpAIAIKQCAICQCgCAkAoAAEIqAAAIqQAACKkAACCkAgAgpAIAgJAKAICQCgAAQioAAAipAAAIqQAAIKQCACCkAgCAkAoAgJAKAABCKgAAQioAAAipAAAgpAIAIKQCAICQCgCAkAoAAEIqAABCKgAACKkAACCkAgAgpAIAgJAKAICQCgAAQioAAEIqAAAIqQAACKkAACCkAgCAkAoAgJAKAABCKgAAQioAAAipAAAIqQAAIKQCACCkKgEAAEIqAAAIqQAACKkAACCkAgAgpAIAgJAKAICQCgAAQioAAAipAAAU9xfF466X/ZMB2QAAAABJRU5ErkJggg==" alt="Curefoods"><span>Expense Management Portal</span></div>' +
         '<div class="user">' + state.user.name + '<br>' +
           (state.user.brandName && state.user.department ? state.user.brandName + ' - ' + state.user.department :
            (state.user.brandName || state.user.department || state.activeRole)) +
@@ -416,18 +634,17 @@
     var content = el('<div class="content" id="content"></div>');
     app.appendChild(content);
 
-    if (state.user.roles.length > 1) {
-      app.appendChild(buildBottomNav());
-    }
+    app.appendChild(buildBottomNav());
     renderPortal();
   }
 
   function buildBottomNav() {
     var nav = el('<div class="bottomnav"></div>');
     state.user.roles.forEach(function (role) {
+      var badge = ROLE_BADGE[role];
       var btn = el(
         '<button class="navitem' + (role === state.activeRole ? ' active' : '') + '">' +
-          '<span class="icon">' + ROLE_ICON[role] + '</span>' + role +
+          '<span class="icon icon-' + badge.tint + '">' + badge.letter + '</span>' + role +
         '</button>'
       );
       btn.addEventListener('click', function () {
@@ -436,6 +653,16 @@
       });
       nav.appendChild(btn);
     });
+    var policyBtn = el(
+      '<button class="navitem' + (state.activeRole === 'Policy' ? ' active' : '') + '">' +
+        '<span class="icon icon-teal">P</span>Policy' +
+      '</button>'
+    );
+    policyBtn.addEventListener('click', function () {
+      state.activeRole = 'Policy';
+      renderApp();
+    });
+    nav.appendChild(policyBtn);
     return nav;
   }
 
@@ -446,6 +673,7 @@
     else if (state.activeRole === 'Manager') renderManagerPortal(content);
     else if (state.activeRole === 'Admin') renderAdminPortal(content);
     else if (state.activeRole === 'Finance') renderFinancePortal(content);
+    else if (state.activeRole === 'Policy') renderPolicyPortal(content);
   }
 
   function statusClass(status) { return 'status-' + status.replace(/ /g, '-'); }
@@ -467,7 +695,7 @@
           '<div style="flex:1">' + amountBlock +
           '<div class="claim-meta">' + c['Category'] + ' · ' + dateStr + '</div></div>' +
           '<span class="badge">' + label + '</span>' +
-          (c['Over Policy'] === 'Yes' ? '<span class="badge badge-warn">⚠ Over Policy</span>' : '') +
+          (c['Over Policy'] === 'Yes' ? '<span class="badge badge-warn">Over Policy</span>' : '') +
         '</div>' +
         (c['Description'] ? '<div class="claim-desc">' + escapeHtml(c['Description']) + '</div>' : '') +
         (c['Employee Name'] && state.activeRole !== 'Employee' ?
@@ -477,8 +705,13 @@
           '</div>' : '') +
         (c['Batch ID'] ? '<div class="claim-meta">Submitted with other claims</div>' : '') +
         (c['Resubmitted From'] ? '<div class="claim-meta">Resubmitted from ' + c['Resubmitted From'] + '</div>' : '') +
-        (c['Receipt URL'] ? '<div class="claim-receipt"><a href="' + c['Receipt URL'] + '" target="_blank">View receipt</a></div>' : '') +
+        (c['Receipt URL'] ? '<div class="claim-receipt">' +
+          c['Receipt URL'].split('|').map(function (u, i, arr) {
+            return '<a href="' + u + '" target="_blank">View receipt' + (arr.length > 1 ? ' ' + (i + 1) : '') + '</a>';
+          }).join(' &nbsp;·&nbsp; ') +
+        '</div>' : '') +
         (c['Manager Remarks'] ? '<div class="claim-remarks">Remarks: ' + escapeHtml(c['Manager Remarks']) + '</div>' : '') +
+        (c['Return Reason'] ? '<div class="claim-remarks">Returned by ' + escapeHtml(c['Returned By'] || '') + ': ' + escapeHtml(c['Return Reason']) + '</div>' : '') +
         (c['Transaction Ref'] ? '<div class="claim-remarks">Txn Ref: ' + escapeHtml(c['Transaction Ref']) + '</div>' : '') +
         (opts.extraHtml || '') +
       '</div>'
@@ -516,178 +749,491 @@
   function renderEmployeePortal(content) {
     var sub = state.activeSubtab.employee || 'new';
     content.innerHTML =
-      subtabsHtml([{ key: 'new', label: 'New Claim' }, { key: 'mine', label: 'My Claims' }], sub) +
+      subtabsHtml([
+        { key: 'new', label: 'New Claim' },
+        { key: 'bulk', label: 'Bulk Upload' },
+        { key: 'returned', label: 'Returned' },
+        { key: 'mine', label: 'My Claims' }
+      ], sub) +
       '<div id="employee-body"></div>';
     wireSubtabs(content, function (key) { state.activeSubtab.employee = key; renderPortal(); });
     var body = document.getElementById('employee-body');
-    if (sub === 'new') { renderNewClaimForm(body); wireBatchTray(); }
+    if (sub === 'new') renderNewClaimForm(body);
+    else if (sub === 'bulk') renderBulkUploadForm(body);
+    else if (sub === 'returned') renderReturnedToEmployee(body);
     else renderMyClaims(body);
   }
 
+  function uid_() { return 'e' + Math.random().toString(36).slice(2, 10); }
+
+  function todayIso_() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function blankClaimEntry_() {
+    return { _uid: uid_(), amount: '', expenseDate: todayIso_(), description: '', fileNames: [], dataUrls: [] };
+  }
+
+  function findClaimEntry_(uid) {
+    return (state.claimEntries || []).filter(function (e) { return e._uid === uid; })[0];
+  }
+
+  function claimEntryHtml_(entry, idx, removable) {
+    return (
+      '<div class="claim-entry" data-uid="' + entry._uid + '">' +
+        (idx > 0 ? '<div class="claim-entry-head"><span>Claim ' + (idx + 1) + '</span>' +
+          (removable ? '<button type="button" class="claim-entry-remove" data-uid="' + entry._uid + '">Remove</button>' : '') +
+        '</div>' : '') +
+        '<label>Receipt (photo, PDF, or Excel — attach as many as you need)</label>' +
+        '<input class="f-receipt" type="file" multiple data-uid="' + entry._uid + '" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" capture="environment">' +
+        '<div class="claim-file-status" id="file-status-' + entry._uid + '">' + (entry.fileNames.length ? '✓ ' + entry.fileNames.map(escapeHtml).join(', ') : '') + '</div>' +
+        '<label>Amount (₹) <span class="cap-nudge" id="cap-nudge-' + entry._uid + '"></span></label>' +
+        '<input class="f-amount" type="number" min="1" step="0.01" placeholder="e.g. 1500" data-uid="' + entry._uid + '" value="' + (entry.amount || '') + '">' +
+        '<div class="out-of-policy-note" id="cap-callout-' + entry._uid + '"><b>Out of policy</b> — this would push you over this category’s monthly cap.</div>' +
+        '<label>Expense date</label>' +
+        '<input class="f-date" type="date" data-uid="' + entry._uid + '" value="' + (entry.expenseDate || '') + '">' +
+        '<label>Description (optional)</label>' +
+        '<textarea class="f-desc" placeholder="What was this for?" data-uid="' + entry._uid + '">' + escapeHtml(entry.description || '') + '</textarea>' +
+      '</div>'
+    );
+  }
+
   function renderNewClaimForm(body) {
+    if (!state.claimEntries || !state.claimEntries.length) state.claimEntries = [blankClaimEntry_()];
+    if (!state.claimCategory) state.claimCategory = CATEGORY_OPTIONS[0];
     var resubmitNote = state.resubmitFrom ? '<div class="claim-meta">Resubmitting ' + state.resubmitFrom + '</div>' : '';
-    // Once anything is queued in the batch, submitting a single claim directly is hidden —
-    // only "Submit all" is live, so a claim can never be filed outside the batch by accident.
-    var batchInProgress = state.batch.length > 0;
-    var showBatchButton = !state.resubmitFrom;
-    var showSingleSubmit = !batchInProgress;
+    var isResubmit = !!state.resubmitFrom;
+    var entries = state.claimEntries;
+
     body.innerHTML =
       '<div class="card">' +
         '<h3>Submit a claim</h3>' + resubmitNote +
         '<label>Category</label>' +
         '<select id="f-category">' +
-          '<option>Fuel</option>' +
-          '<option>Accommodation</option>' +
-          '<option>Meals</option>' +
-          '<option>Local Conveyance</option>' +
-          '<option>Outstation Travel</option>' +
-          '<option>Internet / Telephone / Mobile Bill</option>' +
-          '<option>Office Supplies</option>' +
-          '<option>IT Assets</option>' +
-          '<option>Training</option>' +
-          '<option>Medical</option>' +
-          '<option>Petty Cash</option>' +
-          '<option>Other Business Expenses</option>' +
+          CATEGORY_OPTIONS.map(function (c) { return '<option' + (c === state.claimCategory ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
         '</select>' +
-        '<label>Amount (₹)</label>' +
-        '<input id="f-amount" type="number" min="1" step="0.01" placeholder="e.g. 1500">' +
-        '<label>Expense date</label>' +
-        '<input id="f-date" type="date">' +
-        '<label>Description (optional)</label>' +
-        '<textarea id="f-desc" placeholder="What was this for?"></textarea>' +
-        '<label>Receipt (photo, PDF, or Excel)</label>' +
-        '<input id="f-receipt" type="file" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" capture="environment">' +
-        (batchInProgress ? '<div class="claim-meta" style="margin-top:10px">Claims are queued below — use "Submit all" to file them.</div>' : '') +
-        '<div class="btn-row">' +
-          (showBatchButton ? '<button class="btn-outline" id="f-add-batch">Add More Claims</button>' : '') +
-          (showSingleSubmit ? '<button class="btn-primary" id="f-submit" style="margin-top:0">Submit Claim</button>' : '') +
-        '</div>' +
-      '</div>' +
-      (state.batch.length ? renderBatchTrayHtml() : '');
-    document.getElementById('f-date').valueAsDate = new Date();
-    // One key per form render, reused across retries of the same click so a timeout-and-retry
-    // can't create a duplicate row — the server recognizes the repeat and returns the same result.
+        entries.map(function (e, i) { return claimEntryHtml_(e, i, !isResubmit && entries.length > 1); }).join('') +
+        (isResubmit ? '' : '<button type="button" class="claim-add-more" id="claim-add-more">+ Add Another Claim</button>') +
+        '<button class="btn-primary" id="claims-submit-all" style="margin-top:14px">Submit Claim</button>' +
+      '</div>';
+
+    wireNewClaimForm_(body);
+    loadCategorySpend_(state.claimCategory);
+  }
+
+  function wireNewClaimForm_(body) {
+    var categorySelect = document.getElementById('f-category');
+    categorySelect.addEventListener('change', function () {
+      state.claimCategory = categorySelect.value;
+      loadCategorySpend_(state.claimCategory);
+    });
+
+    body.querySelectorAll('.f-amount').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entry = findClaimEntry_(input.getAttribute('data-uid'));
+        if (entry) entry.amount = input.value;
+        recalcCapStatus_();
+      });
+    });
+    body.querySelectorAll('.f-date').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entry = findClaimEntry_(input.getAttribute('data-uid'));
+        if (entry) entry.expenseDate = input.value;
+      });
+    });
+    body.querySelectorAll('.f-desc').forEach(function (ta) {
+      ta.addEventListener('input', function () {
+        var entry = findClaimEntry_(ta.getAttribute('data-uid'));
+        if (entry) entry.description = ta.value;
+      });
+    });
+    body.querySelectorAll('.f-receipt').forEach(function (input) {
+      input.addEventListener('change', function () {
+        var uid = input.getAttribute('data-uid');
+        var entry = findClaimEntry_(uid);
+        var files = Array.prototype.slice.call(input.files || []);
+        var statusEl = document.getElementById('file-status-' + uid);
+        if (!files.length || !entry) return;
+        if (statusEl) statusEl.textContent = 'Processing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…';
+        Promise.all(files.map(function (f) { return receiptFileToPayloadFields(f); })).then(function (results) {
+          results.forEach(function (r) {
+            entry.dataUrls.push(r.dataUrl);
+            entry.fileNames.push(r.fileName);
+          });
+          input.value = '';
+          if (statusEl) statusEl.textContent = '✓ ' + entry.fileNames.map(escapeHtml).join(', ');
+        }).catch(function () {
+          if (statusEl) statusEl.textContent = 'Could not read one of those files — try again.';
+        });
+      });
+    });
+    body.querySelectorAll('.claim-entry-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var uid = btn.getAttribute('data-uid');
+        state.claimEntries = state.claimEntries.filter(function (e) { return e._uid !== uid; });
+        renderPortal();
+      });
+    });
+
+    var addMoreBtn = document.getElementById('claim-add-more');
+    if (addMoreBtn) addMoreBtn.addEventListener('click', function () {
+      state.claimEntries.push(blankClaimEntry_());
+      renderPortal();
+      setTimeout(function () {
+        var rows = document.querySelectorAll('.claim-entry');
+        var last = rows[rows.length - 1];
+        if (last) last.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    });
+
+    var submitBtn = document.getElementById('claims-submit-all');
     var submitKey = newIdempotencyKey();
-
-    function readForm() {
-      return {
-        category: document.getElementById('f-category').value,
-        amount: document.getElementById('f-amount').value,
-        expenseDate: document.getElementById('f-date').value,
-        description: document.getElementById('f-desc').value,
-        _fileInput: document.getElementById('f-receipt')
-      };
-    }
-    function resetForm() {
-      document.getElementById('f-amount').value = '';
-      document.getElementById('f-desc').value = '';
-      document.getElementById('f-receipt').value = '';
-    }
-
-    var submitBtn = document.getElementById('f-submit');
-    if (submitBtn) submitBtn.addEventListener('click', function () {
-      var btn = this;
-      var form = readForm();
-      if (!form.amount || Number(form.amount) <= 0) { showToast('Enter a valid amount.'); return; }
-      var file = form._fileInput.files[0];
-      if (!file) { showToast('Attach a receipt photo.'); return; }
-      btn.disabled = true; btn.textContent = 'Submitting…';
-      receiptFileToPayloadFields(file).then(function (r) {
-        var payload = { category: form.category, amount: form.amount, expenseDate: form.expenseDate, description: form.description, receiptDataUrl: r.dataUrl, receiptFileName: r.fileName, idempotencyKey: submitKey };
-        var fnName = state.resubmitFrom ? 'handleResubmitClaim' : 'handleSubmitClaim';
-        if (state.resubmitFrom) payload.originalClaimId = state.resubmitFrom;
-        return callServer(fnName, [payload]);
-      }).then(function (res) {
-        showToast('Claim ' + res.claimId + ' submitted' + (res.overPolicy === 'Yes' ? ' (flagged over policy)' : '') + '.');
+    submitBtn.addEventListener('click', function () {
+      var category = document.getElementById('f-category').value;
+      var entries = state.claimEntries;
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (!e.amount || Number(e.amount) <= 0) { showToast('Enter a valid amount for claim ' + (i + 1) + '.'); return; }
+        if (!e.expenseDate) { showToast('Pick an expense date for claim ' + (i + 1) + '.'); return; }
+        if (!e.dataUrls.length) { showToast('Attach at least one receipt for claim ' + (i + 1) + '.'); return; }
+      }
+      submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+      var claims = entries.map(function (e) {
+        return { category: category, amount: e.amount, expenseDate: e.expenseDate, description: e.description, receiptDataUrls: e.dataUrls, receiptFileNames: e.fileNames };
+      });
+      var fnName, payload;
+      if (state.resubmitFrom) {
+        fnName = 'handleResubmitClaim';
+        payload = claims[0];
+        payload.originalClaimId = state.resubmitFrom;
+        payload.idempotencyKey = submitKey;
+      } else if (claims.length === 1) {
+        fnName = 'handleSubmitClaim';
+        payload = claims[0];
+        payload.idempotencyKey = submitKey;
+      } else {
+        fnName = 'handleSubmitBatch';
+        payload = { claims: claims, idempotencyKey: submitKey };
+      }
+      callServer(fnName, [payload]).then(function (res) {
+        var count = res.claimIds ? res.claimIds.length : 1;
+        playSwoosh();
+        showToast(count > 1 ? (count + ' claims submitted.') : ('Claim ' + res.claimId + ' submitted' + (res.overPolicy === 'Yes' ? ' (flagged over policy)' : '') + '.'));
         state.resubmitFrom = null;
+        state.claimEntries = null;
+        state.categorySpend = null;
         state.activeSubtab.employee = 'mine';
         renderPortal();
       }).catch(function (err) {
         showToast(err.message || 'Failed to submit.');
-        btn.disabled = false; btn.textContent = 'Submit Claim';
+        submitBtn.disabled = false;
+        recalcCapStatus_();
       });
     });
 
-    var addBatchBtn = document.getElementById('f-add-batch');
-    if (addBatchBtn) addBatchBtn.addEventListener('click', function () {
-      var btn = this;
-      var form = readForm();
-      if (!form.amount || Number(form.amount) <= 0) { showToast('Enter a valid amount.'); return; }
-      var file = form._fileInput.files[0];
-      if (!file) { showToast('Attach a receipt photo.'); return; }
-      btn.disabled = true;
-      receiptFileToPayloadFields(file).then(function (r) {
-        state.batch.push({ category: form.category, amount: form.amount, expenseDate: form.expenseDate, description: form.description, receiptDataUrl: r.dataUrl, receiptFileName: r.fileName });
-        resetForm();
-        btn.disabled = false;
-        showToast('Added (' + state.batch.length + ' claims so far).');
-        renderPortal();
-      });
-    });
+    recalcCapStatus_();
   }
 
-  function renderBatchTrayHtml() {
-    return '<div class="batch-tray"><h4>Claims to Submit (' + state.batch.length + ')</h4>' +
-      state.batch.map(function (c, i) {
-        return '<div class="batch-item"><span>' + c.category + ' · ₹' + c.amount + '</span><button class="batch-remove" data-idx="' + i + '">Remove</button></div>';
-      }).join('') +
-      '<button class="btn-primary" id="batch-submit-all">Submit all ' + state.batch.length + ' claims</button>' +
-      '</div>';
+  function loadCategorySpend_(category) {
+    state.categorySpend = null;
+    recalcCapStatus_();
+    callServer('handleGetCategorySpend', [{ category: category }]).then(function (res) {
+      var sel = document.getElementById('f-category');
+      if (sel && sel.value === category) {
+        state.categorySpend = res;
+        recalcCapStatus_();
+      }
+    }).catch(function () { /* nudge just stays hidden if this fails */ });
   }
 
-  function wireBatchTray() {
-    document.querySelectorAll('.batch-remove').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        state.batch.splice(Number(btn.getAttribute('data-idx')), 1);
-        renderPortal();
-      });
+  function recalcCapStatus_() {
+    var spend = state.categorySpend;
+    var entries = state.claimEntries || [];
+    var anyOver = false;
+    var running = spend ? Number(spend.used) || 0 : 0;
+    entries.forEach(function (e) {
+      var amt = Number(e.amount) || 0;
+      var priorRunning = running;
+      running += amt;
+      var nudgeEl = document.getElementById('cap-nudge-' + e._uid);
+      var calloutEl = document.getElementById('cap-callout-' + e._uid);
+      if (!spend || spend.cap === null || spend.cap === undefined) {
+        if (nudgeEl) nudgeEl.textContent = '';
+        if (calloutEl) calloutEl.classList.remove('show');
+        return;
+      }
+      if (nudgeEl) nudgeEl.textContent = '· Cap ₹' + Number(spend.cap).toLocaleString('en-IN') + '/mo · ₹' + priorRunning.toLocaleString('en-IN') + ' used so far';
+      var over = amt > 0 && running > spend.cap;
+      if (over) anyOver = true;
+      if (calloutEl) calloutEl.classList.toggle('show', over);
     });
-    var submitAll = document.getElementById('batch-submit-all');
-    if (submitAll) {
-      var batchKey = newIdempotencyKey();
-      submitAll.addEventListener('click', function () {
-        submitAll.disabled = true; submitAll.textContent = 'Submitting…';
-        callServer('handleSubmitBatch', [{ claims: state.batch, idempotencyKey: batchKey }]).then(function (res) {
-          showToast(res.claimIds.length + ' claims submitted.');
-          state.batch = [];
-          state.activeSubtab.employee = 'mine';
-          renderPortal();
-        }).catch(function (err) {
-          showToast(err.message || 'Failed to submit batch.');
-          submitAll.disabled = false; submitAll.textContent = 'Submit all ' + state.batch.length + ' claims';
-        });
-      });
+    var submitBtn = document.getElementById('claims-submit-all');
+    if (submitBtn && !submitBtn.disabled) {
+      if (anyOver) {
+        submitBtn.textContent = 'Are You Really Sure?';
+        submitBtn.classList.add('btn-danger-confirm');
+      } else {
+        submitBtn.textContent = state.resubmitFrom ? 'Submit Claim' : (entries.length > 1 ? 'Submit ' + entries.length + ' Claims' : 'Submit Claim');
+        submitBtn.classList.remove('btn-danger-confirm');
+      }
     }
+  }
+
+  var RESUBMITTABLE_STATUSES_ = { 'Rejected': true, 'Returned to Employee': true };
+
+  function wireResubmitButtons_(body) {
+    body.querySelectorAll('[data-resubmit]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        state.resubmitFrom = btn.getAttribute('data-resubmit');
+        state.claimEntries = null;
+        state.activeSubtab.employee = 'new';
+        renderPortal();
+      });
+    });
+  }
+
+  function monthKeyOf_(dateVal) {
+    var d = new Date(dateVal);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  function monthLabelOf_(monthKey) {
+    var parts = monthKey.split('-');
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+    return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }
+
+  function myClaimsMonthlySummaryHtml_(claims) {
+    var byMonth = {};
+    claims.forEach(function (c) {
+      if (!c['Expense Date'] || c['Status'] === 'Rejected') return;
+      var key = monthKeyOf_(c['Expense Date']);
+      if (!byMonth[key]) byMonth[key] = { total: 0, count: 0 };
+      byMonth[key].total += Number(c['Amount']) || 0;
+      byMonth[key].count += 1;
+    });
+    var keys = Object.keys(byMonth).sort().reverse();
+    if (!keys.length) return '';
+    var rows = keys.map(function (key) {
+      var m = byMonth[key];
+      return '<div class="stat-list-row"><span>' + monthLabelOf_(key) + '</span><span>₹' +
+        m.total.toLocaleString('en-IN') + ' &middot; ' + m.count + ' claim' + (m.count > 1 ? 's' : '') + '</span></div>';
+    }).join('');
+    return '<div class="card"><h3>Monthly Summary</h3>' + rows + '</div>';
+  }
+
+  function withinExpenseRangeClient_(dateVal, startDate, endDate) {
+    if (!startDate && !endDate) return true;
+    var d = new Date(dateVal);
+    if (startDate && d < new Date(startDate + 'T00:00:00')) return false;
+    if (endDate && d > new Date(endDate + 'T23:59:59')) return false;
+    return true;
+  }
+
+  function myClaimsFilterHtml_(range) {
+    return (
+      '<div class="card">' +
+        '<h3>Filter by date</h3>' +
+        '<label>Start date</label><input id="my-start" type="date" value="' + range.startDate + '">' +
+        '<label>End date</label><input id="my-end" type="date" value="' + range.endDate + '">' +
+        '<div class="btn-row">' +
+          '<button class="btn-outline" id="my-clear">Clear</button>' +
+          '<button class="btn-primary" id="my-apply" style="margin-top:0">Apply</button>' +
+        '</div>' +
+      '</div>'
+    );
   }
 
   function renderMyClaims(body) {
     callServer('handleListMyClaims', []).then(function (res) {
-      if (!res.claims.length) { body.innerHTML = '<div class="empty-state">No claims yet.</div>'; return; }
-      body.innerHTML = res.claims.map(function (c) {
-        var actions = c['Status'] === 'Rejected'
-          ? '<button class="btn-outline btn-small" style="margin-top:8px" data-resubmit="' + c['Claim ID'] + '">Edit & Resubmit</button>'
-          : '';
-        return claimCardHtml(c, { extraHtml: actions });
-      }).join('');
-      body.querySelectorAll('[data-resubmit]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          state.resubmitFrom = btn.getAttribute('data-resubmit');
-          state.activeSubtab.employee = 'new';
-          renderPortal();
-        });
+      var all = res.claims;
+      if (!all.length) { body.innerHTML = '<div class="empty-state">No claims yet.</div>'; return; }
+      var range = state.myClaimsRange || { startDate: '', endDate: '' };
+      var filtered = all.filter(function (c) { return withinExpenseRangeClient_(c['Expense Date'], range.startDate, range.endDate); });
+      var listHtml = !filtered.length
+        ? '<div class="empty-state">No claims in this range.</div>'
+        : filtered.map(function (c) {
+            var actions = RESUBMITTABLE_STATUSES_[c['Status']]
+              ? '<button class="btn-outline btn-small" style="margin-top:8px" data-resubmit="' + c['Claim ID'] + '">Edit & Resubmit</button>'
+              : '';
+            return claimCardHtml(c, { extraHtml: actions });
+          }).join('');
+      body.innerHTML = myClaimsMonthlySummaryHtml_(all) + myClaimsFilterHtml_(range) + listHtml;
+      wireResubmitButtons_(body);
+      document.getElementById('my-apply').addEventListener('click', function () {
+        state.myClaimsRange = { startDate: document.getElementById('my-start').value, endDate: document.getElementById('my-end').value };
+        renderPortal();
+      });
+      document.getElementById('my-clear').addEventListener('click', function () {
+        state.myClaimsRange = { startDate: '', endDate: '' };
+        renderPortal();
       });
     }).catch(function (err) { body.innerHTML = '<div class="empty-state">' + (err.message || 'Failed to load.') + '</div>'; });
+  }
+
+  function renderReturnedToEmployee(body) {
+    callServer('handleListMyClaims', []).then(function (res) {
+      var claims = res.claims.filter(function (c) { return c['Status'] === 'Returned to Employee'; });
+      if (!claims.length) { body.innerHTML = '<div class="empty-state">Nothing sent back to you right now.</div>'; return; }
+      body.innerHTML = claims.map(function (c) {
+        var actions = '<button class="btn-outline btn-small" style="margin-top:8px" data-resubmit="' + c['Claim ID'] + '">Edit & Resubmit</button>';
+        return claimCardHtml(c, { extraHtml: actions });
+      }).join('');
+      wireResubmitButtons_(body);
+    }).catch(function (err) { body.innerHTML = '<div class="empty-state">' + (err.message || 'Failed to load.') + '</div>'; });
+  }
+
+  // ---------- Employee bulk upload ----------
+  function findBulkEntry_(uid) {
+    return (state.bulkEntries || []).filter(function (e) { return e._uid === uid; })[0];
+  }
+
+  function bulkEntryHtml_(entry, idx) {
+    return (
+      '<div class="claim-entry" data-uid="' + entry._uid + '">' +
+        '<div class="claim-entry-head"><span>' + escapeHtml(entry.category) + '</span></div>' +
+        '<div class="claim-meta">₹' + Number(entry.amount).toLocaleString('en-IN') + ' &middot; ' + entry.expenseDate +
+          (entry.description ? ' &middot; ' + escapeHtml(entry.description) : '') +
+        '</div>' +
+        '<label>Receipt (photo, PDF, or Excel — attach as many as you need)</label>' +
+        '<input class="f-receipt" type="file" multiple data-uid="' + entry._uid + '" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" capture="environment">' +
+        '<div class="claim-file-status" id="file-status-' + entry._uid + '"></div>' +
+      '</div>'
+    );
+  }
+
+  function renderBulkUploadForm(body) {
+    if (!state.bulkEntries) {
+      body.innerHTML =
+        '<div class="card">' +
+          '<h3>Bulk upload claims</h3>' +
+          '<p class="claim-meta">Download the template, fill in one row per claim, then upload it back here. ' +
+          'Column names must match exactly — the file is rejected otherwise. Receipts are still attached here in ' +
+          'the app after upload, same as a normal claim.</p>' +
+          '<button class="btn-outline" id="bulk-download-template">Download template (.xlsx)</button>' +
+          '<label style="margin-top:14px">Upload filled template</label>' +
+          '<input id="bulk-file-input" type="file" accept=".xlsx">' +
+          '<div id="bulk-upload-status" class="claim-meta"></div>' +
+        '</div>';
+
+      document.getElementById('bulk-download-template').addEventListener('click', function () {
+        var btn = this;
+        btn.disabled = true; btn.textContent = 'Preparing…';
+        callServer('handleGetBulkTemplate', []).then(function (res) {
+          var link = document.createElement('a');
+          link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + res.base64;
+          link.download = res.fileName;
+          document.body.appendChild(link); link.click(); link.remove();
+          btn.disabled = false; btn.textContent = 'Download template (.xlsx)';
+        }).catch(function (err) {
+          showToast(err.message || 'Failed to prepare template.');
+          btn.disabled = false; btn.textContent = 'Download template (.xlsx)';
+        });
+      });
+
+      document.getElementById('bulk-file-input').addEventListener('change', function (e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var statusEl = document.getElementById('bulk-upload-status');
+        statusEl.textContent = 'Reading and validating file…';
+        fileToDataUrl(file).then(function (dataUrl) {
+          return callServer('handleParseBulkUpload', [{ fileDataUrl: dataUrl }]);
+        }).then(function (res) {
+          state.bulkEntries = res.rows.map(function (r) {
+            var entry = blankClaimEntry_();
+            entry.category = r.category; entry.amount = r.amount;
+            entry.expenseDate = r.expenseDate; entry.description = r.description;
+            return entry;
+          });
+          renderPortal();
+        }).catch(function (err) {
+          statusEl.textContent = '';
+          showToast(err.message || 'Could not process that file.');
+          e.target.value = '';
+        });
+      });
+      return;
+    }
+
+    var entries = state.bulkEntries;
+    body.innerHTML =
+      '<div class="card">' +
+        '<h3>Review ' + entries.length + ' claim' + (entries.length > 1 ? 's' : '') + ' from your file</h3>' +
+        '<p class="claim-meta">Attach a receipt for each claim below, then submit.</p>' +
+        entries.map(function (e, i) { return bulkEntryHtml_(e, i); }).join('') +
+        '<div class="btn-row">' +
+          '<button class="btn-outline" id="bulk-cancel">Cancel</button>' +
+          '<button class="btn-primary" id="bulk-submit-all" style="margin-top:0">Submit all</button>' +
+        '</div>' +
+      '</div>';
+    wireBulkReviewForm_(body);
+  }
+
+  function wireBulkReviewForm_(body) {
+    body.querySelectorAll('.f-receipt').forEach(function (input) {
+      input.addEventListener('change', function () {
+        var uid = input.getAttribute('data-uid');
+        var entry = findBulkEntry_(uid);
+        var files = Array.prototype.slice.call(input.files || []);
+        var statusEl = document.getElementById('file-status-' + uid);
+        if (!files.length || !entry) return;
+        if (statusEl) statusEl.textContent = 'Processing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…';
+        Promise.all(files.map(function (f) { return receiptFileToPayloadFields(f); })).then(function (results) {
+          results.forEach(function (r) { entry.dataUrls.push(r.dataUrl); entry.fileNames.push(r.fileName); });
+          input.value = '';
+          if (statusEl) statusEl.textContent = '✓ ' + entry.fileNames.map(escapeHtml).join(', ');
+        }).catch(function () {
+          if (statusEl) statusEl.textContent = 'Could not read one of those files — try again.';
+        });
+      });
+    });
+    document.getElementById('bulk-cancel').addEventListener('click', function () {
+      state.bulkEntries = null;
+      renderPortal();
+    });
+    var submitBtn = document.getElementById('bulk-submit-all');
+    var submitKey = newIdempotencyKey();
+    submitBtn.addEventListener('click', function () {
+      var entries = state.bulkEntries;
+      for (var i = 0; i < entries.length; i++) {
+        if (!entries[i].dataUrls.length) { showToast('Attach at least one receipt for row ' + (i + 2) + '.'); return; }
+      }
+      submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+      var claims = entries.map(function (e) {
+        return {
+          category: e.category, amount: e.amount, expenseDate: e.expenseDate, description: e.description,
+          receiptDataUrls: e.dataUrls, receiptFileNames: e.fileNames
+        };
+      });
+      callServer('handleSubmitBatch', [{ claims: claims, idempotencyKey: submitKey }]).then(function (res) {
+        playSwoosh();
+        showToast(res.claimIds.length + ' claims submitted.');
+        state.bulkEntries = null;
+        state.activeSubtab.employee = 'mine';
+        renderPortal();
+      }).catch(function (err) {
+        showToast(err.message || 'Submit failed.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit all';
+      });
+    });
   }
 
   // ---------- Manager ----------
   function renderManagerPortal(content) {
     var sub = state.activeSubtab.manager || 'pending';
     content.innerHTML =
-      subtabsHtml([{ key: 'pending', label: 'Pending' }, { key: 'history', label: 'Team History' }], sub) +
+      subtabsHtml([
+        { key: 'pending', label: 'Pending' },
+        { key: 'returned', label: 'Returned' },
+        { key: 'history', label: 'Team History' }
+      ], sub) +
       '<div id="manager-body"></div>';
     wireSubtabs(content, function (key) { state.activeSubtab.manager = key; renderPortal(); });
     var body = document.getElementById('manager-body');
-    callServer('handleListTeamClaims', []).then(function (res) {
+    var actionable = sub === 'pending' || sub === 'returned';
+    var fn = sub === 'returned' ? 'handleListManagerReturned' : 'handleListTeamClaims';
+    callServer(fn, []).then(function (res) {
       var claims = sub === 'pending'
         ? res.claims.filter(function (c) { return c['Status'] === 'Pending Manager'; })
         : res.claims;
@@ -698,14 +1244,15 @@
       }
       body.innerHTML = claims.map(function (c) {
         var actions = '';
-        if (sub === 'pending') {
+        if (actionable) {
           actions =
             '<div class="btn-row">' +
               '<button class="btn-outline btn-reject" data-id="' + c['Claim ID'] + '">Reject</button>' +
+              '<button class="btn-outline btn-return-employee" data-id="' + c['Claim ID'] + '">Return</button>' +
               '<button class="btn-primary btn-approve" data-id="' + c['Claim ID'] + '" style="margin-top:0">Approve</button>' +
             '</div>';
         }
-        return claimCardHtml(c, { extraHtml: actions, editableAmount: sub === 'pending' });
+        return claimCardHtml(c, { extraHtml: actions, editableAmount: actionable });
       }).join('') + bulkBar;
       body.querySelectorAll('.btn-edit-amount-link').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -733,11 +1280,18 @@
           actOnClaim('handleRejectClaim', btn.getAttribute('data-id'), btn, remarks);
         });
       });
+      body.querySelectorAll('.btn-return-employee').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var remarks = window.prompt('What does the employee need to fix?') || '';
+          actOnClaim('handleManagerReturnToEmployee', btn.getAttribute('data-id'), btn, remarks);
+        });
+      });
       var bulkBtn = document.getElementById('bulk-approve');
       if (bulkBtn) {
         bulkBtn.addEventListener('click', function () {
           bulkBtn.disabled = true; bulkBtn.textContent = 'Approving…';
           callServer('handleBulkApproveWithinPolicy', []).then(function (res) {
+            playDone();
             showToast('Approved ' + res.approvedCount + (res.skippedOverPolicyIds.length ? ', skipped ' + res.skippedOverPolicyIds.length + ' over-policy' : '') + '.');
             renderPortal();
           }).catch(function (err) { showToast(err.message || 'Failed.'); bulkBtn.disabled = false; });
@@ -751,6 +1305,7 @@
     var payload = { claimId: claimId, remarks: remarks };
     if (editedAmount !== null && editedAmount !== undefined && editedAmount !== '') payload.editedAmount = editedAmount;
     callServer(fnName, [payload]).then(function (res) {
+      playDone();
       showToast(res && res.amountChanged ? 'Approved with updated amount.' : 'Done.');
       renderPortal();
     }).catch(function (err) {
@@ -763,30 +1318,93 @@
   function renderAdminPortal(content) {
     var sub = state.activeSubtab.admin || 'queue';
     content.innerHTML =
-      subtabsHtml([{ key: 'queue', label: 'To Forward' }, { key: 'all', label: 'All Claims' }, { key: 'dashboard', label: 'Dashboard' }], sub) +
+      subtabsHtml([
+        { key: 'queue', label: 'To Forward' },
+        { key: 'returned', label: 'Returned' },
+        { key: 'all', label: 'All Claims' },
+        { key: 'dashboard', label: 'Dashboard' }
+      ], sub) +
       '<div id="admin-body"></div>';
-    wireSubtabs(content, function (key) { state.activeSubtab.admin = key; renderPortal(); });
+    wireSubtabs(content, function (key) { state.activeSubtab.admin = key; state.selectedAdmin = {}; renderPortal(); });
     var body = document.getElementById('admin-body');
     if (sub === 'dashboard') { renderAdminDashboard(body); return; }
-    var fn = sub === 'queue' ? 'handleListAdminQueue' : 'handleListAllClaims';
+    var forwardable = sub === 'queue' || sub === 'returned';
+    var fn = sub === 'queue' ? 'handleListAdminQueue' : sub === 'returned' ? 'handleListAdminReturned' : 'handleListAllClaims';
     callServer(fn, []).then(function (res) {
       if (!res.claims.length) { body.innerHTML = '<div class="empty-state">Nothing here.</div>'; return; }
-      body.innerHTML = res.claims.map(function (c) {
-        var actions = sub === 'queue'
-          ? '<button class="btn-primary btn-forward" data-id="' + c['Claim ID'] + '">Forward to Finance</button>'
+      var selectAllHtml = forwardable && res.claims.length > 1
+        ? '<div class="select-all-row"><input type="checkbox" id="admin-select-all"><label for="admin-select-all">Select all</label></div>'
+        : '';
+      body.innerHTML = selectAllHtml + res.claims.map(function (c) {
+        var actions = forwardable
+          ? '<div class="btn-row">' +
+              '<button class="btn-outline btn-return-manager" data-id="' + c['Claim ID'] + '">Return to Manager</button>' +
+              '<button class="btn-primary btn-forward" data-id="' + c['Claim ID'] + '" style="margin-top:0">Forward to Finance</button>' +
+            '</div>'
           : '';
-        return claimCardHtml(c, { extraHtml: actions });
-      }).join('');
+        return claimCardHtml(c, { checkbox: forwardable, extraHtml: actions });
+      }).join('') + (forwardable && res.claims.length > 1 ? renderAdminBulkBarHtml() : '');
       body.querySelectorAll('.btn-forward').forEach(function (btn) {
         btn.addEventListener('click', function () {
           btn.disabled = true;
           callServer('handleForwardToFinance', [{ claimId: btn.getAttribute('data-id') }]).then(function () {
+            playDone();
             showToast('Forwarded to Finance.');
             renderPortal();
           }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
         });
       });
+      body.querySelectorAll('.btn-return-manager').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var remarks = window.prompt('What does the Manager need to review?') || '';
+          btn.disabled = true;
+          callServer('handleAdminReturnToManager', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
+            playDone();
+            showToast('Sent back to Manager.');
+            renderPortal();
+          }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+        });
+      });
+      if (forwardable) wireAdminQueue(body);
     }).catch(function (err) { body.innerHTML = '<div class="empty-state">' + (err.message || 'Failed to load.') + '</div>'; });
+  }
+
+  function renderAdminBulkBarHtml() {
+    return '<div class="bulk-bar"><button class="btn-primary" id="bulk-forward" style="margin-top:0">Forward selected to Finance</button></div>';
+  }
+
+  function wireAdminQueue(body) {
+    body.querySelectorAll('.claim-select').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        state.selectedAdmin[cb.getAttribute('data-id')] = cb.checked;
+      });
+    });
+    var selectAll = document.getElementById('admin-select-all');
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        body.querySelectorAll('.claim-select').forEach(function (cb) {
+          cb.checked = selectAll.checked;
+          state.selectedAdmin[cb.getAttribute('data-id')] = selectAll.checked;
+        });
+      });
+    }
+    var bulkBtn = document.getElementById('bulk-forward');
+    if (bulkBtn) {
+      bulkBtn.addEventListener('click', function () {
+        var selectedIds = Object.keys(state.selectedAdmin).filter(function (id) { return state.selectedAdmin[id]; });
+        if (!selectedIds.length) { showToast('Select at least one claim.'); return; }
+        bulkBtn.disabled = true; bulkBtn.textContent = 'Forwarding…';
+        callServer('handleBulkForwardToFinance', [{ claimIds: selectedIds }]).then(function (res) {
+          playDone();
+          showToast(res.forwardedCount + ' claims forwarded to Finance.');
+          state.selectedAdmin = {};
+          renderPortal();
+        }).catch(function (err) {
+          showToast(err.message || 'Failed.');
+          bulkBtn.disabled = false; bulkBtn.textContent = 'Forward selected to Finance';
+        });
+      });
+    }
   }
 
   function renderAdminDashboard(body) {
@@ -854,22 +1472,63 @@
   }
 
   // ---------- Finance ----------
+  /** Compact row for Finance: person | category | amount | approved by (manager name) — per Finance's request for a leaner view than the full claim card. */
+  function financeRowHtml(c, opts) {
+    opts = opts || {};
+    var checkbox = opts.checkbox ? '<span class="claim-check"><input type="checkbox" class="claim-select" data-id="' + c['Claim ID'] + '"></span>' : '';
+    var dateStr = c['Expense Date'] ? new Date(c['Expense Date']).toLocaleDateString('en-IN') : '';
+    return (
+      '<div class="card finance-row" data-claim-id="' + c['Claim ID'] + '">' +
+        '<div class="finance-row-top">' +
+          checkbox +
+          '<div class="finance-row-main">' +
+            '<div class="finance-row-person">' + escapeHtml(c['Employee Name'] || '') + '</div>' +
+            '<div class="finance-row-meta">' + escapeHtml(c['Category'] || '') + (dateStr ? ' &middot; ' + dateStr : '') +
+              ' &middot; Approved by ' + escapeHtml(c['Manager Name'] || c['Manager Email'] || '') + '</div>' +
+          '</div>' +
+          '<div class="claim-amount">₹' + Number(c['Amount']).toLocaleString('en-IN') + '</div>' +
+        '</div>' +
+        (opts.extraHtml || '') +
+      '</div>'
+    );
+  }
+
   function renderFinancePortal(content) {
     var sub = state.activeSubtab.finance || 'queue';
     content.innerHTML =
-      subtabsHtml([{ key: 'queue', label: 'Payment Queue' }, { key: 'history', label: 'Paid' }], sub) +
+      subtabsHtml([
+        { key: 'queue', label: 'Payment Queue' },
+        { key: 'held', label: 'Held' },
+        { key: 'history', label: 'Paid' },
+        { key: 'dashboard', label: 'Dashboard' }
+      ], sub) +
       '<div id="finance-body"></div>';
     wireSubtabs(content, function (key) { state.activeSubtab.finance = key; state.selectedFinance = {}; renderPortal(); });
     var body = document.getElementById('finance-body');
-    var fn = sub === 'queue' ? 'handleListFinanceQueue' : 'handleListFinanceHistory';
+    if (sub === 'dashboard') { renderAdminDashboard(body); return; }
+    var fn = sub === 'queue' ? 'handleListFinanceQueue' : sub === 'held' ? 'handleListFinanceHeld' : 'handleListFinanceHistory';
     callServer(fn, []).then(function (res) {
-      var exportBar = '<div class="btn-row"><button class="btn-outline btn-small" id="export-csv">Export CSV</button></div>';
+      var exportBar = sub !== 'held' ? '<div class="btn-row"><button class="btn-outline btn-small" id="export-csv">Export CSV</button></div>' : '';
       if (!res.claims.length) { body.innerHTML = exportBar + '<div class="empty-state">Nothing here.</div>'; wireExport(sub, body); return; }
       body.innerHTML = exportBar + res.claims.map(function (c) {
-        var actions = sub === 'queue' ? '<label>UTR (if available)</label><input class="txn-input" data-id="' + c['Claim ID'] + '" placeholder="e.g. UTR12345 — leave blank if not available">' : '';
-        return claimCardHtml(c, { checkbox: sub === 'queue', extraHtml: actions });
+        var actions = '';
+        if (sub === 'queue') {
+          actions =
+            '<div class="finance-row-utr"><input class="txn-input" data-id="' + c['Claim ID'] + '" placeholder="UTR (optional)"></div>' +
+            '<div class="btn-row">' +
+              '<button class="btn-outline btn-small btn-hold" data-id="' + c['Claim ID'] + '">Hold</button>' +
+              '<button class="btn-outline btn-small btn-return-admin" data-id="' + c['Claim ID'] + '">Return to Admin</button>' +
+            '</div>';
+        } else if (sub === 'held') {
+          actions =
+            (c['Return Reason'] ? '<div class="claim-remarks">Hold reason: ' + escapeHtml(c['Return Reason']) + '</div>' : '') +
+            '<div class="finance-row-utr"><input class="txn-input" data-id="' + c['Claim ID'] + '" placeholder="UTR (optional)"></div>' +
+            '<div class="btn-row"><button class="btn-outline btn-small btn-release" data-id="' + c['Claim ID'] + '">Release</button></div>';
+        }
+        return financeRowHtml(c, { checkbox: sub === 'queue', extraHtml: actions });
       }).join('') + (sub === 'queue' ? renderFinanceBulkBarHtml() : '');
       if (sub === 'queue') wireFinanceQueue(body);
+      if (sub === 'held') wireFinanceHeld(body);
       wireExport(sub, body);
     }).catch(function (err) { body.innerHTML = '<div class="empty-state">' + (err.message || 'Failed to load.') + '</div>'; });
   }
@@ -886,7 +1545,6 @@
         state.selectedFinance[cb.getAttribute('data-id')] = cb.checked;
       });
     });
-    body.querySelectorAll('.btn-paid-single').forEach(function () {});
     var bulkBtn = document.getElementById('bulk-mark-paid');
     if (bulkBtn) {
       bulkBtn.addEventListener('click', function () {
@@ -895,6 +1553,7 @@
         if (!selectedIds.length) { showToast('Select at least one claim.'); return; }
         bulkBtn.disabled = true; bulkBtn.textContent = 'Processing…';
         callServer('handleBulkMarkPaid', [{ claimIds: selectedIds, transactionRef: ref }]).then(function (res) {
+          playDone();
           showToast(res.paidCount + ' claims marked paid.');
           state.selectedFinance = {};
           renderPortal();
@@ -909,6 +1568,56 @@
         var id = input.getAttribute('data-id');
         singleBtn.disabled = true;
         callServer('handleMarkPaid', [{ claimId: id, transactionRef: input.value.trim() }]).then(function () {
+          playDone();
+          showToast('Marked as paid.');
+          renderPortal();
+        }).catch(function (err) { showToast(err.message || 'Failed.'); singleBtn.disabled = false; });
+      });
+    });
+    body.querySelectorAll('.btn-hold').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var remarks = window.prompt('Reason for hold (optional):') || '';
+        btn.disabled = true;
+        callServer('handleFinanceHold', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
+          playDone();
+          showToast('Claim put on hold.');
+          renderPortal();
+        }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+      });
+    });
+    body.querySelectorAll('.btn-return-admin').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var remarks = window.prompt('Reason for returning to Admin:') || '';
+        btn.disabled = true;
+        callServer('handleFinanceReturnToAdmin', [{ claimId: btn.getAttribute('data-id'), remarks: remarks }]).then(function () {
+          playDone();
+          showToast('Sent back to Admin.');
+          renderPortal();
+        }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+      });
+    });
+  }
+
+  function wireFinanceHeld(body) {
+    body.querySelectorAll('.btn-release').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        callServer('handleFinanceReleaseHold', [{ claimId: btn.getAttribute('data-id') }]).then(function () {
+          playDone();
+          showToast('Released back to Payment Queue.');
+          renderPortal();
+        }).catch(function (err) { showToast(err.message || 'Failed.'); btn.disabled = false; });
+      });
+    });
+    body.querySelectorAll('.txn-input').forEach(function (input) {
+      var wrapper = input.parentElement;
+      var singleBtn = el('<button class="btn-primary btn-small" style="margin-top:8px">Mark Paid</button>');
+      wrapper.appendChild(singleBtn);
+      singleBtn.addEventListener('click', function () {
+        var id = input.getAttribute('data-id');
+        singleBtn.disabled = true;
+        callServer('handleMarkPaid', [{ claimId: id, transactionRef: input.value.trim() }]).then(function () {
+          playDone();
           showToast('Marked as paid.');
           renderPortal();
         }).catch(function (err) { showToast(err.message || 'Failed.'); singleBtn.disabled = false; });
@@ -925,6 +1634,119 @@
         downloadCsv(res.csv, 'reimbursement-' + sub + '.csv');
         btn.disabled = false;
       }).catch(function (err) { showToast(err.message || 'Export failed.'); btn.disabled = false; });
+    });
+  }
+
+  function policyStepHtml(num, title, body) {
+    return '<div class="policy-step"><div class="num">' + num + '</div><div class="body"><b>' + title + '</b><span>' + body + '</span></div></div>';
+  }
+
+  function renderPolicyPortal(content) {
+    var tierKey = state.activeSubtab.policy || POLICY_TIERS[0].key;
+    var tier = POLICY_TIERS.filter(function (t) { return t.key === tierKey; })[0] || POLICY_TIERS[0];
+
+    var tierTabsHtml = '<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;">' +
+      POLICY_TIERS.map(function (t) {
+        return '<div class="subtab policy-tier-tab' + (t.key === tier.key ? ' active' : '') + '" data-key="' + t.key + '" style="flex:none;">' + t.label + '</div>';
+      }).join('') +
+    '</div>';
+
+    content.innerHTML =
+      '<div class="policy-hero">' +
+        '<h2>Reimbursement &amp; Travel Policy</h2>' +
+        '<p>What every Curefoods employee can claim, at a glance — pulled from the official Travel Policy &amp; Approval Policy for Financial Transactions.</p>' +
+        '<span class="tag">Policy on file: 2025 · an updated version will replace this soon</span>' +
+      '</div>' +
+
+      '<div class="policy-section-title">Your reimbursement limits</div>' +
+      '<div class="card">' +
+        tierTabsHtml +
+        '<div style="padding:0 2px 10px;font-size:12px;color:var(--muted);font-weight:600;">' + tier.title + '</div>' +
+        '<div class="policy-tier-grid">' +
+          '<div class="policy-stat"><div class="lab">Travel</div><div class="val">' + tier.travel + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Food + Conveyance</div><div class="val">' + tier.food + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Local Conveyance</div><div class="val">' + tier.conveyance + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Hotel</div><div class="val">' + tier.hotel + '</div></div>' +
+        '</div>' +
+        '<div class="policy-stat" style="margin-top:10px;"><div class="lab">Other Expenses</div><div class="val">' + tier.other + '</div></div>' +
+        '<div class="policy-tier-note">Exceeding any of these limits needs exceptional approval from your HR Business Partner and HOD.</div>' +
+      '</div>' +
+
+      '<div class="policy-section-title">How to claim a reimbursement</div>' +
+      '<div class="card">' +
+        '<div class="policy-steps">' +
+          policyStepHtml(1, 'Submit within 30 days', 'Claims filed after 30 days of travel need extra sign-off from your Head of Department.') +
+          policyStepHtml(2, 'Email your manager', 'Kick off the process with an email to your reporting manager.') +
+          policyStepHtml(3, 'Submit form + receipts', 'Once your manager approves, send the reimbursement form and original receipts to the accounts team.') +
+          policyStepHtml(4, 'Operations Head approval', 'The accounts team routes it to the Operations Head for sign-off.') +
+          policyStepHtml(5, 'Uploaded to Oracle', 'The verified invoice (with company name on it) is uploaded to the Oracle portal.') +
+          policyStepHtml(6, 'Paid within 15 working days', 'Payment is released within 15 working days of the Oracle upload.') +
+        '</div>' +
+      '</div>' +
+
+      '<div class="policy-section-title">Booking your travel</div>' +
+      '<div class="card">' +
+        '<div class="policy-steps">' +
+          policyStepHtml(1, 'Notify 10 days in advance', 'Required for any travel of 500km or more, in either direction.') +
+          policyStepHtml(2, 'Log personal vehicle KMs', 'If you use your own vehicle, record the exact kilometers in the claim and get your manager’s approval.') +
+          policyStepHtml(3, 'Book via MakeMyTrip or Yatra', 'Use one of these apps and stay within your band’s budget.') +
+        '</div>' +
+      '</div>' +
+
+      '<div class="accordion" id="acc-bands">' +
+        '<div class="accordion-head"><span>Flight, hotel &amp; city limits by band</span><span class="chev">▾</span></div>' +
+        '<div class="accordion-body">' +
+          '<div class="policy-table-wrap"><table class="policy-table">' +
+            '<tr><th>Band</th><th class="center">Dom. Flight</th><th class="center">Intl. Flight</th><th class="center">Dom. Hotel</th><th class="center">Intl. Hotel</th><th>Air Class</th><th class="center">Bus/Train</th><th>Tier 1 city limit</th><th>Rest of India limit</th></tr>' +
+            '<tr><td>1</td><td class="center">Y</td><td class="center">Y</td><td class="center">Y</td><td class="center">Y</td><td>Economy + Premium Eco.</td><td class="center">Y</td><td>₹2,800</td><td>₹2,500</td></tr>' +
+            '<tr><td>2</td><td class="center">Y</td><td class="center">N</td><td class="center">Y</td><td class="center">N</td><td>Economy</td><td class="center">Y</td><td>₹1,800</td><td>₹800</td></tr>' +
+            '<tr><td>3</td><td class="center">Y</td><td class="center">N</td><td class="center">Y</td><td class="center">N</td><td>Economy</td><td class="center">Y</td><td>₹1,200</td><td>₹700</td></tr>' +
+          '</table></div>' +
+          '<div class="policy-cities"><b>Tier 1 cities:</b> Mumbai, Delhi/NCR, Kolkata, Bangalore, Pune, Chennai, Hyderabad, Ahmedabad, Goa. <b>Tier 2:</b> all other locations.</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="policy-section-title">Approval policy for financial transactions</div>' +
+      '<div class="card">' +
+        '<p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5;">A clear, transparent process for approving any financial transaction — ensuring company funds are used accurately and with the right authorization.</p>' +
+        '<div class="policy-role-grid">' +
+          '<div class="policy-role-card"><div class="ico icon-navy">R</div><b>Requester</b><span>Initiates the request</span></div>' +
+          '<div class="policy-role-card"><div class="ico icon-blue">A</div><b>Approver</b><span>Authorizes or rejects it</span></div>' +
+          '<div class="policy-role-card"><div class="ico icon-gold">F</div><b>Finance Team</b><span>Verifies &amp; processes it</span></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="accordion" id="acc-process">' +
+        '<div class="accordion-head"><span>Approval process, step by step</span><span class="chev">▾</span></div>' +
+        '<div class="accordion-body">' +
+          '<div class="policy-steps">' +
+            policyStepHtml(1, 'Requester submits', 'A request goes in with supporting documentation.') +
+            policyStepHtml(2, 'Approver reviews', 'The manager reviews and verifies the request.') +
+            policyStepHtml(3, 'Approver decides', 'It’s approved or rejected — with reasons either way.') +
+            policyStepHtml(4, 'Finance processes', 'Approved requests are processed and paid out by the Finance Team.') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="policy-note">' +
+        '<b>Thresholds:</b> Your manager approves within defined limits. Anything likely to cross the threshold needs sign-off from the departmental head, then a final cross-check from Finance.' +
+      '</div>' +
+      '<div class="policy-note pink">' +
+        '<b>Exceptions:</b> Urgent transactions can be approved directly by the CEO or Finance Director, with documentation filed afterward. Recurring transactions may be pre-approved fortnightly with periodic review.' +
+      '</div>' +
+
+      '<div class="policy-tier-note" style="text-align:center;margin:16px 2px 4px;">This is the policy on file as shared by HR (2025) — reviewed annually, and an updated version is expected soon. This page will refresh the moment it lands.</div>';
+
+    content.querySelectorAll('.policy-tier-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        state.activeSubtab.policy = tab.getAttribute('data-key');
+        renderPolicyPortal(content);
+      });
+    });
+    content.querySelectorAll('.accordion-head').forEach(function (head) {
+      head.addEventListener('click', function () {
+        head.parentElement.classList.toggle('open');
+      });
     });
   }
 

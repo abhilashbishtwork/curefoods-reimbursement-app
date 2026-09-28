@@ -148,3 +148,23 @@ function migrateSchemaV6() {
   });
   Logger.log('Claims headers now: ' + headers.join(', '));
 }
+
+/**
+ * Schema v7: adds Return Reason / Returned By / Returned At to the Claims tab, backing
+ * the cross-role "send it back a step" workflow (Manager -> Employee, Admin -> Manager,
+ * Finance -> Admin, plus Finance's Hold). Safe to re-run.
+ */
+function migrateSchemaV7() {
+  var claims = getClaimsSheet_();
+  var headerRange = claims.getRange(1, 1, 1, claims.getLastColumn());
+  var headers = headerRange.getValues()[0];
+  var newCols = ['Return Reason', 'Returned By', 'Returned At'];
+  newCols.forEach(function (name) {
+    if (headers.indexOf(name) === -1) {
+      var col = claims.getLastColumn() + 1;
+      claims.getRange(1, col).setValue(name);
+      headers.push(name);
+    }
+  });
+  Logger.log('Claims headers now: ' + headers.join(', '));
+}
