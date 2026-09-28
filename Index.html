@@ -271,6 +271,10 @@
   .claim-entry-remove { background: none; border: none; color: var(--danger); font-size: 12px; font-weight: 700; padding: 0; width: auto; }
   .claim-file-status { font-size: 12px; color: var(--brand); font-weight: 600; margin: 4px 0 0; min-height: 16px; }
   .cap-nudge { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .claim-amount-preview {
+    background: #f0f7f4; border: 1px solid #cfe8db; color: var(--brand); border-radius: 10px;
+    padding: 10px 12px; font-size: 13.5px; font-weight: 700; margin: 6px 0 0;
+  }
   .out-of-policy-note {
     display: none; background: #fdf0ee; border: 1px solid #f5d5cf; color: var(--danger); border-radius: 10px;
     padding: 8px 12px; font-size: 12px; font-weight: 700; margin: 6px 0 0;
@@ -306,37 +310,7 @@
     Admin: { letter: 'A', tint: 'purple' },
     Finance: { letter: 'F', tint: 'gold' }
   };
-  var CATEGORY_OPTIONS = [
-    'Fuel', 'Accommodation', 'Meals', 'Local Conveyance', 'Outstation Travel',
-    'Internet / Telephone / Mobile Bill', 'Office Supplies', 'IT Assets', 'Training',
-    'Medical', 'Petty Cash', 'Other Business Expenses'
-  ];
-  var POLICY_TIERS = [
-    {
-      key: 'l1', label: '1A · 1B · 1C', title: 'HCM, P&D, Commi (Kitchen Staff)',
-      travel: 'Actual spend. Up to 500KM by train/bus — original tickets required for claim.',
-      food: 'Rs 600/day (Tier 1 cities), Rs 500/day (Tier 2) — flat allowance, no bills needed.',
-      conveyance: 'Actuals reimbursed (public transport, or Ola/Uber if unavailable). Personal vehicle: Rs 5.5/km (2-wheeler), Rs 10/km (4-wheeler). Capped at Rs 2,500/month.',
-      hotel: 'Rs 1,200/day (Tier 1 cities), Rs 700/day (Tier 2) — flat allowance, no bills needed.',
-      other: 'Reimbursed on actuals with bills, pre-approved by manager.'
-    },
-    {
-      key: 'l2', label: '2A · 2B', title: 'Executives, Managerial, AKM, KM, TL, Sous Chef, Project Manager/Lead',
-      travel: 'Actual spend. Up to 500KM by train/bus — original tickets required for claim.',
-      food: 'Rs 600/day (Tier 1 cities), Rs 500/day (Tier 2) — flat allowance, no bills needed.',
-      conveyance: 'Actuals reimbursed (public transport, or Ola/Uber if unavailable). Personal vehicle: Rs 5.5/km (2-wheeler), Rs 10/km (4-wheeler). Capped at Rs 2,500/month.',
-      hotel: 'Rs 1,800/day (Tier 1 cities), Rs 800/day (Tier 2) — flat allowance, no bills needed.',
-      other: 'Reimbursed on actuals with bills, pre-approved by manager.'
-    },
-    {
-      key: 'l3', label: '3A · 3B · 4A', title: 'Managerial & Leadership Team (incl. Central Team)',
-      travel: 'Actual spend. Up to 500KM by train/bus; above 500KM by flight (lowest fare, economy) + airport cab on actuals. Original tickets/boarding pass required.',
-      food: 'Rs 800/day — flat allowance, no bills needed.',
-      conveyance: 'Ola/Uber bills reimbursed on actuals. Personal vehicle: Rs 5.5/km (2-wheeler), Rs 10/km (4-wheeler). Capped at Rs 2,500/month.',
-      hotel: 'Rs 2,800/day — flat allowance, no bills needed.',
-      other: 'Reimbursed on actuals with bills.'
-    }
-  ];
+  var CATEGORY_OPTIONS = ['Local Conveyance', 'Hotel', 'Food DA', 'Flight / Outstation Travel'];
   var TOKEN_KEY = 'cfi_auth_token';
   var SUBMIT_FNS_ = { handleSubmitClaim: true, handleSubmitBatch: true, handleResubmitClaim: true, handleEmailDashboardReport: true };
 
@@ -772,24 +746,63 @@
   }
 
   function blankClaimEntry_() {
-    return { _uid: uid_(), amount: '', expenseDate: todayIso_(), description: '', fileNames: [], dataUrls: [] };
+    return {
+      _uid: uid_(), amount: '', expenseDate: todayIso_(), description: '', fileNames: [], dataUrls: [],
+      vehicleType: '', km: '', nights: '', city: '', days: '', _previewText: ''
+    };
+  }
+
+  /** Renders the category-specific quantity field(s) that drive the auto-computed amount for a claim entry. Flight/Outstation Travel has no rate table, so it keeps the old flat amount input instead. */
+  function claimEntryQuantityFieldsHtml_(entry, category) {
+    if (category === 'Local Conveyance') {
+      return (
+        '<label>Vehicle type</label>' +
+        '<select class="f-vehicle" data-uid="' + entry._uid + '">' +
+          '<option value=""' + (!entry.vehicleType ? ' selected' : '') + '>Select vehicle</option>' +
+          '<option value="2-Wheeler"' + (entry.vehicleType === '2-Wheeler' ? ' selected' : '') + '>2-Wheeler</option>' +
+          '<option value="4-Wheeler"' + (entry.vehicleType === '4-Wheeler' ? ' selected' : '') + '>4-Wheeler</option>' +
+        '</select>' +
+        '<label>Distance (km)</label>' +
+        '<input class="f-km" type="number" min="0.1" step="0.1" placeholder="e.g. 12" data-uid="' + entry._uid + '" value="' + (entry.km || '') + '">'
+      );
+    }
+    if (category === 'Hotel') {
+      return (
+        '<label>Nights stayed</label>' +
+        '<input class="f-nights" type="number" min="1" step="1" placeholder="e.g. 2" data-uid="' + entry._uid + '" value="' + (entry.nights || '') + '">' +
+        '<label>City (optional)</label>' +
+        '<input class="f-city" type="text" placeholder="e.g. Mumbai" data-uid="' + entry._uid + '" value="' + escapeHtml(entry.city || '') + '">'
+      );
+    }
+    if (category === 'Food DA') {
+      return (
+        '<label>Number of days</label>' +
+        '<input class="f-days" type="number" min="1" step="1" placeholder="e.g. 3" data-uid="' + entry._uid + '" value="' + (entry.days || '') + '">'
+      );
+    }
+    return (
+      '<label>Amount (₹)</label>' +
+      '<input class="f-amount" type="number" min="1" step="0.01" placeholder="e.g. 1500" data-uid="' + entry._uid + '" value="' + (entry.amount || '') + '">'
+    );
   }
 
   function findClaimEntry_(uid) {
     return (state.claimEntries || []).filter(function (e) { return e._uid === uid; })[0];
   }
 
-  function claimEntryHtml_(entry, idx, removable) {
+  function claimEntryHtml_(entry, idx, removable, category) {
+    var isFlat = category === 'Flight / Outstation Travel';
     return (
       '<div class="claim-entry" data-uid="' + entry._uid + '">' +
         (idx > 0 ? '<div class="claim-entry-head"><span>Claim ' + (idx + 1) + '</span>' +
           (removable ? '<button type="button" class="claim-entry-remove" data-uid="' + entry._uid + '">Remove</button>' : '') +
         '</div>' : '') +
-        '<label>Receipt (photo, PDF, or Excel — attach as many as you need)</label>' +
+        '<label>Receipt (photo, PDF, or Excel — attach if you have one)</label>' +
         '<input class="f-receipt" type="file" multiple data-uid="' + entry._uid + '" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" capture="environment">' +
         '<div class="claim-file-status" id="file-status-' + entry._uid + '">' + (entry.fileNames.length ? '✓ ' + entry.fileNames.map(escapeHtml).join(', ') : '') + '</div>' +
-        '<label>Amount (₹) <span class="cap-nudge" id="cap-nudge-' + entry._uid + '"></span></label>' +
-        '<input class="f-amount" type="number" min="1" step="0.01" placeholder="e.g. 1500" data-uid="' + entry._uid + '" value="' + (entry.amount || '') + '">' +
+        claimEntryQuantityFieldsHtml_(entry, category) +
+        (isFlat ? '' : '<div class="claim-amount-preview" id="preview-' + entry._uid + '">' + (entry._previewText ? escapeHtml(entry._previewText) : 'Enter the details above to see the computed amount.') + '</div>') +
+        (isFlat ? '' : '<span class="cap-nudge" id="cap-nudge-' + entry._uid + '"></span>') +
         '<div class="out-of-policy-note" id="cap-callout-' + entry._uid + '"><b>Out of policy</b> — this would push you over this category’s monthly cap.</div>' +
         '<label>Expense date</label>' +
         '<input class="f-date" type="date" data-uid="' + entry._uid + '" value="' + (entry.expenseDate || '') + '">' +
@@ -813,7 +826,7 @@
         '<select id="f-category">' +
           CATEGORY_OPTIONS.map(function (c) { return '<option' + (c === state.claimCategory ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
         '</select>' +
-        entries.map(function (e, i) { return claimEntryHtml_(e, i, !isResubmit && entries.length > 1); }).join('') +
+        entries.map(function (e, i) { return claimEntryHtml_(e, i, !isResubmit && entries.length > 1, state.claimCategory); }).join('') +
         (isResubmit ? '' : '<button type="button" class="claim-add-more" id="claim-add-more">+ Add Another Claim</button>') +
         '<button class="btn-primary" id="claims-submit-all" style="margin-top:14px">Submit Claim</button>' +
       '</div>';
@@ -822,11 +835,41 @@
     loadCategorySpend_(state.claimCategory);
   }
 
+  var previewDebounce_ = {};
+
+  /** Recomputes the auto-calculated amount for one entry (Local Conveyance/Hotel/Food DA) via a debounced server call, and updates its preview text + entry.amount in place. */
+  function schedulePreview_(entry) {
+    var category = state.claimCategory;
+    if (category === 'Flight / Outstation Travel') return;
+    clearTimeout(previewDebounce_[entry._uid]);
+    previewDebounce_[entry._uid] = setTimeout(function () {
+      var payload = { category: category };
+      if (category === 'Local Conveyance') { payload.vehicleType = entry.vehicleType; payload.km = entry.km; }
+      else if (category === 'Hotel') { payload.nights = entry.nights; payload.city = entry.city; }
+      else if (category === 'Food DA') { payload.days = entry.days; }
+      var previewEl = document.getElementById('preview-' + entry._uid);
+      callServer('handleComputeTravelAmount', [payload]).then(function (res) {
+        if (res.success && res.amount !== null && res.amount !== undefined) {
+          entry.amount = res.amount;
+          entry._previewText = 'Amount: ₹' + Number(res.amount).toLocaleString('en-IN') + (res.description ? ' (' + res.description + ')' : '');
+        } else {
+          entry.amount = '';
+          entry._previewText = (res && res.error) || 'Enter the details above to see the computed amount.';
+        }
+        if (previewEl) previewEl.textContent = entry._previewText;
+        recalcCapStatus_();
+      }).catch(function () {
+        entry.amount = '';
+        if (previewEl) previewEl.textContent = 'Could not compute the amount — check your entries.';
+      });
+    }, 400);
+  }
+
   function wireNewClaimForm_(body) {
     var categorySelect = document.getElementById('f-category');
     categorySelect.addEventListener('change', function () {
       state.claimCategory = categorySelect.value;
-      loadCategorySpend_(state.claimCategory);
+      renderNewClaimForm(body);
     });
 
     body.querySelectorAll('.f-amount').forEach(function (input) {
@@ -834,6 +877,36 @@
         var entry = findClaimEntry_(input.getAttribute('data-uid'));
         if (entry) entry.amount = input.value;
         recalcCapStatus_();
+      });
+    });
+    body.querySelectorAll('.f-vehicle').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var entry = findClaimEntry_(sel.getAttribute('data-uid'));
+        if (entry) { entry.vehicleType = sel.value; schedulePreview_(entry); }
+      });
+    });
+    body.querySelectorAll('.f-km').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entry = findClaimEntry_(input.getAttribute('data-uid'));
+        if (entry) { entry.km = input.value; schedulePreview_(entry); }
+      });
+    });
+    body.querySelectorAll('.f-nights').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entry = findClaimEntry_(input.getAttribute('data-uid'));
+        if (entry) { entry.nights = input.value; schedulePreview_(entry); }
+      });
+    });
+    body.querySelectorAll('.f-city').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entry = findClaimEntry_(input.getAttribute('data-uid'));
+        if (entry) { entry.city = input.value; schedulePreview_(entry); }
+      });
+    });
+    body.querySelectorAll('.f-days').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entry = findClaimEntry_(input.getAttribute('data-uid'));
+        if (entry) { entry.days = input.value; schedulePreview_(entry); }
       });
     });
     body.querySelectorAll('.f-date').forEach(function (input) {
@@ -890,17 +963,32 @@
     var submitBtn = document.getElementById('claims-submit-all');
     var submitKey = newIdempotencyKey();
     submitBtn.addEventListener('click', function () {
-      var category = document.getElementById('f-category').value;
+      var category = state.claimCategory;
       var entries = state.claimEntries;
       for (var i = 0; i < entries.length; i++) {
         var e = entries[i];
-        if (!e.amount || Number(e.amount) <= 0) { showToast('Enter a valid amount for claim ' + (i + 1) + '.'); return; }
+        if (category === 'Local Conveyance') {
+          if (!e.vehicleType) { showToast('Select a vehicle type for claim ' + (i + 1) + '.'); return; }
+          if (!e.km || Number(e.km) <= 0) { showToast('Enter the distance (km) for claim ' + (i + 1) + '.'); return; }
+        } else if (category === 'Hotel') {
+          if (!e.nights || Number(e.nights) <= 0) { showToast('Enter the number of nights for claim ' + (i + 1) + '.'); return; }
+        } else if (category === 'Food DA') {
+          if (!e.days || Number(e.days) <= 0) { showToast('Enter the number of days for claim ' + (i + 1) + '.'); return; }
+        }
+        if (!e.amount || Number(e.amount) <= 0) {
+          showToast(category === 'Flight / Outstation Travel' ? ('Enter a valid amount for claim ' + (i + 1) + '.') : ('Amount could not be computed for claim ' + (i + 1) + ' — check the details above.'));
+          return;
+        }
         if (!e.expenseDate) { showToast('Pick an expense date for claim ' + (i + 1) + '.'); return; }
-        if (!e.dataUrls.length) { showToast('Attach at least one receipt for claim ' + (i + 1) + '.'); return; }
       }
       submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
       var claims = entries.map(function (e) {
-        return { category: category, amount: e.amount, expenseDate: e.expenseDate, description: e.description, receiptDataUrls: e.dataUrls, receiptFileNames: e.fileNames };
+        var c = { category: category, expenseDate: e.expenseDate, description: e.description, receiptDataUrls: e.dataUrls, receiptFileNames: e.fileNames };
+        if (category === 'Local Conveyance') { c.vehicleType = e.vehicleType; c.km = e.km; }
+        else if (category === 'Hotel') { c.nights = e.nights; c.city = e.city; }
+        else if (category === 'Food DA') { c.days = e.days; }
+        else { c.amount = e.amount; }
+        return c;
       });
       var fnName, payload;
       if (state.resubmitFrom) {
@@ -1642,34 +1730,34 @@
   }
 
   function renderPolicyPortal(content) {
-    var tierKey = state.activeSubtab.policy || POLICY_TIERS[0].key;
-    var tier = POLICY_TIERS.filter(function (t) { return t.key === tierKey; })[0] || POLICY_TIERS[0];
+    content.innerHTML = '<div class="policy-hero"><h2>Reimbursement &amp; Travel Policy</h2><p>Loading your rates…</p></div>';
+    callServer('handleGetMyTravelRates', []).then(function (r) {
+      renderPolicyPortalWithRates_(content, r);
+    }).catch(function (err) {
+      content.innerHTML = '<div class="policy-hero"><h2>Reimbursement &amp; Travel Policy</h2><p>' + escapeHtml(err.message || 'Could not load your rates.') + '</p></div>';
+    });
+  }
 
-    var tierTabsHtml = '<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;">' +
-      POLICY_TIERS.map(function (t) {
-        return '<div class="subtab policy-tier-tab' + (t.key === tier.key ? ' active' : '') + '" data-key="' + t.key + '" style="flex:none;">' + t.label + '</div>';
-      }).join('') +
-    '</div>';
-
-    content.innerHTML =
+  function renderPolicyPortalWithRates_(content, r) {
+    var billsRequired = r.billsRequiredHotel && !/no\s*—?\s*flat allowance/i.test(r.billsRequiredHotel);
+    var heroHtml =
       '<div class="policy-hero">' +
         '<h2>Reimbursement &amp; Travel Policy</h2>' +
-        '<p>What every Curefoods employee can claim, at a glance — pulled from the official Travel Policy &amp; Approval Policy for Financial Transactions.</p>' +
-        '<span class="tag">Policy on file: 2025 · an updated version will replace this soon</span>' +
-      '</div>' +
-
-      '<div class="policy-section-title">Your reimbursement limits</div>' +
+        '<p>What you can claim, at a glance — pulled live from the Travel policy sheet for your company and grade.</p>' +
+        '<span class="tag">Live policy · updates automatically when the sheet changes</span>' +
+      '</div>';
+    var myRatesHtml =
+      '<div class="policy-section-title">Your rates — ' + escapeHtml(r.brand || 'your company') + (r.grade ? ' · ' + escapeHtml(r.grade) : '') + '</div>' +
       '<div class="card">' +
-        tierTabsHtml +
-        '<div style="padding:0 2px 10px;font-size:12px;color:var(--muted);font-weight:600;">' + tier.title + '</div>' +
         '<div class="policy-tier-grid">' +
-          '<div class="policy-stat"><div class="lab">Travel</div><div class="val">' + tier.travel + '</div></div>' +
-          '<div class="policy-stat"><div class="lab">Food + Conveyance</div><div class="val">' + tier.food + '</div></div>' +
-          '<div class="policy-stat"><div class="lab">Local Conveyance</div><div class="val">' + tier.conveyance + '</div></div>' +
-          '<div class="policy-stat"><div class="lab">Hotel</div><div class="val">' + tier.hotel + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Local Conveyance (2-Wheeler)</div><div class="val">' + escapeHtml(r.conveyance2Wheeler || 'Not defined') + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Local Conveyance (4-Wheeler)</div><div class="val">' + escapeHtml(r.conveyance4Wheeler || 'Not defined') + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Monthly Conveyance Cap</div><div class="val">' + (r.monthlyCap !== null && r.monthlyCap !== undefined ? '₹' + Number(r.monthlyCap).toLocaleString('en-IN') + '/month' : 'Not defined') + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Hotel</div><div class="val">' + escapeHtml(r.hotelRate || 'Not defined for your grade') + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Food DA</div><div class="val">' + escapeHtml(r.foodDaRate || 'Not defined for your grade') + '</div></div>' +
+          '<div class="policy-stat"><div class="lab">Flight Eligible</div><div class="val">' + escapeHtml(r.flightEligible || 'Not defined') + '</div></div>' +
         '</div>' +
-        '<div class="policy-stat" style="margin-top:10px;"><div class="lab">Other Expenses</div><div class="val">' + tier.other + '</div></div>' +
-        '<div class="policy-tier-note">Exceeding any of these limits needs exceptional approval from your HR Business Partner and HOD.</div>' +
+        '<div class="policy-tier-note">Hotel bills ' + (billsRequired ? 'are required' : 'are not required — flat allowance') + ' for ' + escapeHtml(r.brand || 'your company') + '. These rates come straight from the live Travel policy sheet, so they’re always current.</div>' +
       '</div>' +
 
       '<div class="policy-section-title">How to claim a reimbursement</div>' +
@@ -1690,19 +1778,6 @@
           policyStepHtml(1, 'Notify 10 days in advance', 'Required for any travel of 500km or more, in either direction.') +
           policyStepHtml(2, 'Log personal vehicle KMs', 'If you use your own vehicle, record the exact kilometers in the claim and get your manager’s approval.') +
           policyStepHtml(3, 'Book via MakeMyTrip or Yatra', 'Use one of these apps and stay within your band’s budget.') +
-        '</div>' +
-      '</div>' +
-
-      '<div class="accordion" id="acc-bands">' +
-        '<div class="accordion-head"><span>Flight, hotel &amp; city limits by band</span><span class="chev">▾</span></div>' +
-        '<div class="accordion-body">' +
-          '<div class="policy-table-wrap"><table class="policy-table">' +
-            '<tr><th>Band</th><th class="center">Dom. Flight</th><th class="center">Intl. Flight</th><th class="center">Dom. Hotel</th><th class="center">Intl. Hotel</th><th>Air Class</th><th class="center">Bus/Train</th><th>Tier 1 city limit</th><th>Rest of India limit</th></tr>' +
-            '<tr><td>1</td><td class="center">Y</td><td class="center">Y</td><td class="center">Y</td><td class="center">Y</td><td>Economy + Premium Eco.</td><td class="center">Y</td><td>₹2,800</td><td>₹2,500</td></tr>' +
-            '<tr><td>2</td><td class="center">Y</td><td class="center">N</td><td class="center">Y</td><td class="center">N</td><td>Economy</td><td class="center">Y</td><td>₹1,800</td><td>₹800</td></tr>' +
-            '<tr><td>3</td><td class="center">Y</td><td class="center">N</td><td class="center">Y</td><td class="center">N</td><td>Economy</td><td class="center">Y</td><td>₹1,200</td><td>₹700</td></tr>' +
-          '</table></div>' +
-          '<div class="policy-cities"><b>Tier 1 cities:</b> Mumbai, Delhi/NCR, Kolkata, Bangalore, Pune, Chennai, Hyderabad, Ahmedabad, Goa. <b>Tier 2:</b> all other locations.</div>' +
         '</div>' +
       '</div>' +
 
@@ -1735,14 +1810,10 @@
         '<b>Exceptions:</b> Urgent transactions can be approved directly by the CEO or Finance Director, with documentation filed afterward. Recurring transactions may be pre-approved fortnightly with periodic review.' +
       '</div>' +
 
-      '<div class="policy-tier-note" style="text-align:center;margin:16px 2px 4px;">This is the policy on file as shared by HR (2025) — reviewed annually, and an updated version is expected soon. This page will refresh the moment it lands.</div>';
+      '<div class="policy-tier-note" style="text-align:center;margin:16px 2px 4px;">Rates above are read live from the Travel policy sheet — edit that sheet and this page reflects it immediately.</div>';
 
-    content.querySelectorAll('.policy-tier-tab').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        state.activeSubtab.policy = tab.getAttribute('data-key');
-        renderPolicyPortal(content);
-      });
-    });
+    content.innerHTML = heroHtml + myRatesHtml;
+
     content.querySelectorAll('.accordion-head').forEach(function (head) {
       head.addEventListener('click', function () {
         head.parentElement.classList.toggle('open');

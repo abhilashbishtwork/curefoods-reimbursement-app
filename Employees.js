@@ -4,9 +4,10 @@ function getMasterSheet_() {
   return SpreadsheetApp.openById(sheetId);
 }
 
-function getEmployeesSheet_() { return getMasterSheet_().getSheetByName('Employees'); }
+function getEmployeesSheet_() { return getMasterSheet_().getSheetByName('Employees Data'); }
 function getClaimsSheet_() { return getMasterSheet_().getSheetByName('Claims'); }
 function getPolicySheet_() { return getMasterSheet_().getSheetByName('Policy'); }
+function getTravelPolicySheet_() { return getMasterSheet_().getSheetByName('Travel policy'); }
 function getLogsSheet_() { return getMasterSheet_().getSheetByName('Logs'); }
 
 function splitRoles_(rolesStr) {
@@ -20,15 +21,36 @@ function hasRole_(rolesArr, role) {
   return rolesArr.indexOf(role) !== -1;
 }
 
-/** Reads Employees tab into an array of row objects keyed by header. */
+/**
+ * Reads the "Employees Data" tab (the real HRMS export, ~3600 rows across
+ * Curefoods/Cakezone/Sharief Bhai/Frozen Bottle) into row objects normalized
+ * to the canonical keys the rest of the app uses (Employee ID, Name, Email,
+ * Manager Email, Brand Name, Department, Grade, Role, Status), regardless of
+ * that sheet's own column headers (Emp Code, Emp Name, Official E-Mail ID,
+ * Manager email, Company, ...). Grade is new — used by the Travel policy
+ * engine to resolve an employee's Hotel/Food DA tier.
+ */
 function readEmployeeRows_() {
   var sheet = getEmployeesSheet_();
   var values = sheet.getDataRange().getValues();
   var headers = values[0];
+  var idx = {};
+  headers.forEach(function (h, c) { idx[h] = c; });
   var rows = [];
   for (var i = 1; i < values.length; i++) {
-    var row = {};
-    for (var c = 0; c < headers.length; c++) row[headers[c]] = values[i][c];
+    var raw = values[i];
+    if (!raw[idx['Emp Code']]) continue; // skip blank rows
+    var row = {
+      'Employee ID': raw[idx['Emp Code']],
+      'Name': raw[idx['Emp Name']],
+      'Email': raw[idx['Official E-Mail ID']],
+      'Manager Email': raw[idx['Manager email']],
+      'Brand Name': raw[idx['Company']] || '',
+      'Department': raw[idx['Department']] || '',
+      'Grade': raw[idx['Grade']] || '',
+      'Role': raw[idx['Role']] || '',
+      'Status': raw[idx['Status']] || ''
+    };
     row._rowIndex = i + 1;
     rows.push(row);
   }
@@ -120,6 +142,7 @@ function buildIdentityPayload_(email) {
     managerEmail: employee['Manager Email'],
     brandName: employee['Brand Name'] || '',
     department: employee['Department'] || '',
+    grade: employee['Grade'] || '',
     roles: splitRoles_(employee['Role'])
   };
 }

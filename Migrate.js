@@ -154,6 +154,66 @@ function migrateSchemaV6() {
  * the cross-role "send it back a step" workflow (Manager -> Employee, Admin -> Manager,
  * Finance -> Admin, plus Finance's Hold). Safe to re-run.
  */
+/** Extracts a Drive file ID from a /file/d/<id>/, /document/d/<id>/, or /spreadsheets/d/<id>/ URL. */
+function extractDriveFileId_(url) {
+  var m = /\/d\/([a-zA-Z0-9_-]{20,})/.exec(url);
+  return m ? m[1] : null;
+}
+
+/**
+ * One-time reset for a fresh round of testing, per Abhilash's explicit ask
+ * (2026-09-28): clears every Claims row and every Logs row (headers kept),
+ * and moves every receipt file referenced in the Receipt URL column to
+ * Drive Trash — reversible, NOT permanently deleted, so anything can be
+ * restored from Trash if something looks wrong afterward. Also resets the
+ * atomic claim-ID counters so the next real claim starts back at 00001.
+ * Employees Data / Travel policy / Policy sheets are untouched.
+ */
+function wipeAllClaimsForTesting() {
+  var claimsSheet = getClaimsSheet_();
+  var lastRow = claimsSheet.getLastRow();
+  var lastCol = claimsSheet.getLastColumn();
+  var trashedCount = 0, unresolvedCount = 0;
+
+  if (lastRow > 1) {
+    var receiptCol = CLAIM_COLS_.receiptUrl;
+    var urls = claimsSheet.getRange(2, receiptCol, lastRow - 1, 1).getValues();
+    urls.forEach(function (row) {
+      var cell = row[0];
+      if (!cell) return;
+      String(cell).split('|').forEach(function (url) {
+        url = url.trim();
+        if (!url) return;
+        var id = extractDriveFileId_(url);
+        if (!id) { unresolvedCount++; return; }
+        try {
+          DriveApp.getFileById(id).setTrashed(true);
+          trashedCount++;
+        } catch (e) {
+          unresolvedCount++;
+        }
+      });
+    });
+    claimsSheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+  }
+
+  var logsSheet = getLogsSheet_();
+  var logsLastRow = logsSheet.getLastRow();
+  if (logsLastRow > 1) {
+    logsSheet.getRange(2, 1, logsLastRow - 1, logsSheet.getLastColumn()).clearContent();
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var allProps = props.getProperties();
+  Object.keys(allProps).forEach(function (key) {
+    if (key.indexOf('CLAIM_COUNTER_') === 0) props.deleteProperty(key);
+  });
+
+  Logger.log('Wipe complete. Receipt files moved to Trash: ' + trashedCount +
+    '. Could not resolve/trash: ' + unresolvedCount +
+    '. Claims + Logs rows cleared (headers kept). Claim ID counters reset.');
+}
+
 function migrateSchemaV7() {
   var claims = getClaimsSheet_();
   var headerRange = claims.getRange(1, 1, 1, claims.getLastColumn());

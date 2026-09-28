@@ -65,23 +65,139 @@ function findClaimRow_(claimId) {
   return null;
 }
 
-function getPolicyMax_(category) {
-  var sheet = getPolicySheet_();
-  var values = sheet.getDataRange().getValues();
+/* ===================== TRAVEL POLICY ENGINE ===================== */
+/**
+ * Reads the "Travel policy" sheet (brand-columns × grade-tier rows) into
+ * structured rows: { category, byBrand: {companyName: rawCellText}, grades: [...] }.
+ * Some category labels repeat 2-3 times (e.g. "Hotel" appears once per grade
+ * tier) — those rows are disambiguated ONLY by which grade codes are listed
+ * in that row's Grade column, never by the category text itself, so this
+ * stays correct even if Abhilash reorders or relabels rows later.
+ */
+function readTravelPolicyRows_() {
+  var values = getTravelPolicySheet_().getDataRange().getValues();
+  var headers = values[0];
+  var gradeCol = headers.indexOf('Grade');
+  var brandCols = [];
+  for (var c = 1; c < headers.length; c++) {
+    if (c === gradeCol) continue;
+    brandCols.push({ name: headers[c], index: c });
+  }
+  var rows = [];
   for (var i = 1; i < values.length; i++) {
-    if (values[i][0] === category) return Number(values[i][1]);
+    if (!values[i][0]) continue;
+    var byBrand = {};
+    brandCols.forEach(function (b) { byBrand[b.name] = values[i][b.index]; });
+    var gradesCell = gradeCol > -1 ? values[i][gradeCol] : '';
+    var grades = String(gradesCell || '').split(/[\n,]+/).map(function (g) { return g.trim(); }).filter(Boolean);
+    // Wrapped cells (e.g. "Local Conv.\n2-Wheeler", "Bills Required\n(Hotel)") store a literal
+    // newline where the sheet just visually wraps the text — collapse all whitespace runs to a
+    // single space so category lookups elsewhere can use the plain single-line label.
+    var category = String(values[i][0]).trim().replace(/\s+/g, ' ');
+    rows.push({ category: category, byBrand: byBrand, grades: grades });
+  }
+  return rows;
+}
+
+/** Pulls the first number out of a policy cell like "₹5.5/km", "₹2,500/month", "(>500 km)". Null for blank/"Not defined". */
+function parsePolicyNumber_(cellText) {
+  if (cellText === null || cellText === undefined || cellText === '') return null;
+  var s = String(cellText);
+  if (/not defined/i.test(s)) return null;
+  var m = s.match(/[\d,]+(\.\d+)?/);
+  return m ? Number(m[0].replace(/,/g, '')) : null;
+}
+
+function findPolicyRowByCategory_(rows, category) {
+  for (var i = 0; i < rows.length; i++) if (rows[i].category === category) return rows[i];
+  return null;
+}
+
+function findPolicyRowByCategoryAndGrade_(rows, category, grade) {
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].category !== category) continue;
+    if (rows[i].grades.indexOf(grade) !== -1) return rows[i];
   }
   return null;
 }
 
-/** Live list of valid claim categories, sourced from the Policy tab (the authoritative list). */
+/** Whether Hotel claims need a receipt for this brand ("Yes — compulsory" vs "No — flat allowance"). Defaults to required if the policy row is missing. */
+function getBillsRequiredForHotel_(policyRows, brand) {
+  var row = findPolicyRowByCategory_(policyRows, 'Bills Required (Hotel)');
+  if (!row) return true;
+  return !/no\s*—?\s*flat allowance/i.test(String(row.byBrand[brand] || ''));
+}
+
+function getMonthlyCap_(policyRows, brand) {
+  var row = findPolicyRowByCategory_(policyRows, 'Monthly Cap');
+  return row ? parsePolicyNumber_(row.byBrand[brand]) : null;
+}
+
+/**
+ * Only "Local Conveyance" has an actual cumulative cap in the new policy
+ * (the Monthly Cap row) — Hotel/Food DA are rate×quantity so a correctly
+ * computed amount is definitionally at-policy, and Flight/Outstation Travel
+ * has no defined ceiling. Kept as a (category, brand) function, not folded
+ * into computeTravelAmount_, since handleApproveClaim also needs to
+ * re-check this when a manager edits a claim's amount after submission.
+ */
+function getPolicyMax_(category, brand) {
+  if (category !== 'Local Conveyance') return null;
+  return getMonthlyCap_(readTravelPolicyRows_(), brand);
+}
+
+/** Travel-focused category list for the New Claim form — non-travel categories (Office Supplies, Medical, etc.) were dropped per Abhilash's ask. */
 function getCategoryList_() {
-  var values = getPolicySheet_().getDataRange().getValues();
-  var cats = [];
-  for (var i = 1; i < values.length; i++) {
-    if (values[i][0]) cats.push(String(values[i][0]));
+  return ['Local Conveyance', 'Hotel', 'Food DA', 'Flight / Outstation Travel'];
+}
+
+/**
+ * Computes amount + an audit-trail description for the 3 rate-based
+ * categories from the employee's Company (brand) and Grade, using whatever
+ * quantity field the client sent (km / nights / days). Returns null when
+ * the caller already supplied a flat payload.amount directly instead (bulk
+ * upload, and Flight/Outstation Travel, which has no rate table at all) —
+ * validateClaimPayload_ falls back to trusting that amount as-is in that case.
+ */
+function computeTravelAmount_(employee, payload) {
+  if (payload.amount !== undefined && payload.amount !== null && String(payload.amount).trim() !== '') {
+    return null;
   }
-  return cats;
+  var policyRows = readTravelPolicyRows_();
+  var brand = employee['Brand Name'];
+  var grade = employee['Grade'];
+  var category = payload.category;
+
+  if (category === 'Local Conveyance') {
+    var vehicle = payload.vehicleType;
+    if (vehicle !== '2-Wheeler' && vehicle !== '4-Wheeler') throw new Error('Select a vehicle type (2-Wheeler or 4-Wheeler).');
+    var km = Number(payload.km);
+    if (!(km > 0)) throw new Error('Enter the distance travelled in km.');
+    var cRow = findPolicyRowByCategory_(policyRows, 'Local Conv. ' + vehicle);
+    var cRate = cRow ? parsePolicyNumber_(cRow.byBrand[brand]) : null;
+    if (cRate === null) throw new Error('No Local Conveyance rate defined for ' + (brand || 'your company') + '. Contact Admin.');
+    return { amount: Math.round(km * cRate * 100) / 100, description: km + ' km (' + vehicle + ') @ ₹' + cRate + '/km' };
+  }
+
+  if (category === 'Hotel') {
+    var nights = Number(payload.nights);
+    if (!(nights > 0)) throw new Error('Enter the number of nights.');
+    var hRow = findPolicyRowByCategoryAndGrade_(policyRows, 'Hotel', grade);
+    var hRate = hRow ? parsePolicyNumber_(hRow.byBrand[brand]) : null;
+    if (hRate === null) throw new Error('No Hotel rate defined for your grade (' + (grade || 'unknown') + ') at ' + (brand || 'your company') + '. Contact Admin.');
+    return { amount: nights * hRate, description: nights + ' night(s) @ ₹' + hRate + '/day' + (payload.city ? ' — ' + payload.city : '') };
+  }
+
+  if (category === 'Food DA') {
+    var days = Number(payload.days);
+    if (!(days > 0)) throw new Error('Enter the number of days.');
+    var fRow = findPolicyRowByCategoryAndGrade_(policyRows, 'Food DA', grade);
+    var fRate = fRow ? parsePolicyNumber_(fRow.byBrand[brand]) : null;
+    if (fRate === null) throw new Error('No Food DA rate defined for your grade (' + (grade || 'unknown') + ') at ' + (brand || 'your company') + '. Contact Admin.');
+    return { amount: days * fRate, description: days + ' day(s) @ ₹' + fRate + '/day' };
+  }
+
+  return null; // Flight / Outstation Travel — flat amount, no rate table
 }
 
 /**
@@ -106,12 +222,49 @@ function getMonthlySpend_(employeeId, category, excludeClaimId) {
   return total;
 }
 
+/** Powers the employee-facing "Policy" reference tab — the caller's own applicable rates, read live from the Travel policy sheet (brand + grade specific), so this page can never go stale the way a hardcoded copy would. */
+function handleGetMyTravelRates(token) {
+  var employee = requireActiveEmployee_(token);
+  var policyRows = readTravelPolicyRows_();
+  var brand = employee['Brand Name'];
+  var grade = employee['Grade'];
+  var conv2 = findPolicyRowByCategory_(policyRows, 'Local Conv. 2-Wheeler');
+  var conv4 = findPolicyRowByCategory_(policyRows, 'Local Conv. 4-Wheeler');
+  var hotel = findPolicyRowByCategoryAndGrade_(policyRows, 'Hotel', grade);
+  var foodDa = findPolicyRowByCategoryAndGrade_(policyRows, 'Food DA', grade);
+  var flightRow = findPolicyRowByCategory_(policyRows, 'Flight Eligible');
+  var billsRow = findPolicyRowByCategory_(policyRows, 'Bills Required (Hotel)');
+  return {
+    success: true,
+    brand: brand || '', grade: grade || '',
+    conveyance2Wheeler: conv2 ? (conv2.byBrand[brand] || null) : null,
+    conveyance4Wheeler: conv4 ? (conv4.byBrand[brand] || null) : null,
+    monthlyCap: getMonthlyCap_(policyRows, brand),
+    hotelRate: hotel ? (hotel.byBrand[brand] || null) : null,
+    foodDaRate: foodDa ? (foodDa.byBrand[brand] || null) : null,
+    flightEligible: flightRow ? (flightRow.byBrand[brand] || null) : null,
+    billsRequiredHotel: billsRow ? (billsRow.byBrand[brand] || null) : null
+  };
+}
+
+/** Live preview for the New Claim form — computes the amount from km/nights/days as the employee types, without saving anything. */
+function handleComputeTravelAmount(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  try {
+    var computed = computeTravelAmount_(employee, payload || {});
+    if (!computed) return { success: true, amount: null, description: null };
+    return { success: true, amount: computed.amount, description: computed.description };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 /** Nudge shown on the New Claim form: this month's cap, spend-so-far, and remaining for a category. */
 function handleGetCategorySpend(payload, token) {
   var employee = requireActiveEmployee_(token);
   var category = payload && payload.category;
   if (!category) throw new Error('Category is required.');
-  var cap = getPolicyMax_(category);
+  var cap = getPolicyMax_(category, employee['Brand Name']);
   var used = getMonthlySpend_(employee['Employee ID'], category);
   return { success: true, category: category, cap: cap, used: used, remaining: cap === null ? null : Math.max(0, cap - used) };
 }
@@ -165,13 +318,39 @@ function saveIdempotency_(key, result) {
   CacheService.getScriptCache().put('idem_' + key, JSON.stringify(result), 1800);
 }
 
-function validateClaimPayload_(payload) {
-  if (!payload || !payload.category || !payload.amount || !payload.expenseDate) {
-    throw new Error('Category, amount and expense date are required.');
+/**
+ * For Local Conveyance/Hotel/Food DA, amount is auto-computed from the
+ * employee's brand+grade and whatever quantity they entered (km/nights/days)
+ * via computeTravelAmount_ — no payload.amount expected from the New Claim
+ * form for those. Flight/Outstation Travel (and any caller that already
+ * supplies a flat payload.amount directly, e.g. bulk upload) keeps the old
+ * flat-amount-plus-receipt behavior.
+ */
+function validateClaimPayload_(payload, employee) {
+  if (!payload || !payload.category || !payload.expenseDate) {
+    throw new Error('Category and expense date are required.');
   }
-  var amount = Number(payload.amount);
-  if (!(amount > 0)) throw new Error('Amount must be a positive number.');
-  if (!payload.receiptDataUrls || !payload.receiptDataUrls.length) throw new Error('At least one receipt file is required.');
+  var computed = computeTravelAmount_(employee, payload);
+  var amount, autoDescription;
+  if (computed) {
+    amount = computed.amount;
+    autoDescription = computed.description;
+  } else {
+    if (!payload.amount) throw new Error('Amount is required.');
+    amount = Number(payload.amount);
+    if (!(amount > 0)) throw new Error('Amount must be a positive number.');
+    autoDescription = null;
+  }
+  var billsRequired = true;
+  if (payload.category === 'Hotel') {
+    billsRequired = getBillsRequiredForHotel_(readTravelPolicyRows_(), employee['Brand Name']);
+  }
+  if (billsRequired && (!payload.receiptDataUrls || !payload.receiptDataUrls.length)) {
+    throw new Error('At least one receipt file is required.');
+  }
+  if (autoDescription) {
+    payload.description = payload.description ? (payload.description + ' — ' + autoDescription) : autoDescription;
+  }
   return amount;
 }
 
@@ -184,7 +363,7 @@ function appendClaimRow_(employee, payload, amount, batchId, resubmittedFrom, ex
   var sheet = getClaimsSheet_();
   var claimId = nextClaimId_();
   var receiptUrl = saveReceipts_(payload.receiptDataUrls, payload.receiptFileNames, claimId, employee['Name']);
-  var policyMax = getPolicyMax_(payload.category);
+  var policyMax = getPolicyMax_(payload.category, employee['Brand Name']);
   var priorSpend = getMonthlySpend_(employee['Employee ID'], payload.category);
   var projected = priorSpend + (extraCommitted || 0) + amount;
   var overPolicy = policyMax !== null && projected > policyMax ? 'Yes' : 'No';
@@ -206,7 +385,7 @@ function handleSubmitClaim(payload, token) {
   if (cached) return cached;
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Employee')) throw new Error('Only Employee-role accounts can submit claims.');
-  var amount = validateClaimPayload_(payload);
+  var amount = validateClaimPayload_(payload, employee);
   var res = appendClaimRow_(employee, payload, amount, null, null);
   var result = { success: true, claimId: res.claimId, overPolicy: res.overPolicy };
   saveIdempotency_(payload.idempotencyKey, result);
@@ -224,7 +403,7 @@ function handleSubmitBatch(payload, token) {
   var batchId = claims.length > 1 ? 'BATCH-' + Utilities.getUuid().slice(0, 8).toUpperCase() : null;
   var committedByCategory = {};
   var results = claims.map(function (p) {
-    var amount = validateClaimPayload_(p);
+    var amount = validateClaimPayload_(p, employee);
     var extra = committedByCategory[p.category] || 0;
     var res = appendClaimRow_(employee, p, amount, batchId, null, extra);
     committedByCategory[p.category] = extra + amount;
@@ -284,7 +463,7 @@ function handleApproveClaim(payload, token) {
     if (newAmount !== originalAmount) {
       var sheet = getClaimsSheet_();
       sheet.getRange(claim._rowIndex, CLAIM_COLS_.amount).setValue(newAmount);
-      var policyMax = getPolicyMax_(claim['Category']);
+      var policyMax = getPolicyMax_(claim['Category'], claim['Brand Name']);
       var priorSpend = getMonthlySpend_(claim['Employee ID'], claim['Category'], claim['Claim ID']);
       var overPolicy = policyMax !== null && (priorSpend + newAmount) > policyMax ? 'Yes' : 'No';
       sheet.getRange(claim._rowIndex, CLAIM_COLS_.overPolicy).setValue(overPolicy);
@@ -572,7 +751,7 @@ function handleResubmitClaim(payload, token) {
   if (['Rejected', 'Returned to Employee'].indexOf(original['Status']) === -1) {
     throw new Error('Only rejected or returned claims can be resubmitted.');
   }
-  var amount = validateClaimPayload_(payload);
+  var amount = validateClaimPayload_(payload, employee);
   var res = appendClaimRow_(employee, payload, amount, null, original['Claim ID']);
   logAction_(employee._email, 'resubmit', res.claimId, 'from=' + original['Claim ID']);
   var result = { success: true, claimId: res.claimId, overPolicy: res.overPolicy };
