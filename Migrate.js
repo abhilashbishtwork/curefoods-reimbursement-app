@@ -228,3 +228,30 @@ function migrateSchemaV7() {
   });
   Logger.log('Claims headers now: ' + headers.join(', '));
 }
+
+/**
+ * Schema v8: the Status column (J) had a stale dropdown data-validation rule
+ * (Reject input) from before schema v7's return/hold workflow was added - it
+ * only allowed the original 5 statuses (Pending Manager, Manager Approved,
+ * Rejected, Ready for Finance, Paid). Root cause of a real bug (2026-09-28):
+ * Manager "Return" silently reported success while the claim stayed visible
+ * in Pending, because Range.setValue('Returned to Employee') on that cell was
+ * rejected by validation with no exception at the call site - the eventual
+ * error surfaced later, misleadingly caught by logAction_'s unrelated
+ * try/catch on the next sheet write. Replaces the rule with the full list of
+ * every status value the app actually writes. Safe to re-run.
+ */
+function migrateSchemaV8() {
+  var claims = getClaimsSheet_();
+  var allStatuses = [
+    'Pending Manager', 'Manager Approved', 'Rejected', 'Ready for Finance', 'Paid',
+    'Returned to Employee', 'Returned to Manager', 'Returned to Admin', 'On Hold'
+  ];
+  var lastRow = Math.max(claims.getMaxRows(), 2);
+  var rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(allStatuses, true)
+    .setAllowInvalid(false)
+    .build();
+  claims.getRange(2, CLAIM_COLS_.status, lastRow - 1, 1).setDataValidation(rule);
+  Logger.log('Status column validation replaced. Allowed values: ' + allStatuses.join(', '));
+}
