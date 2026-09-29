@@ -515,6 +515,25 @@
       '<div class="center-screen"><h2>' + title + '</h2><p>' + body + '</p></div>';
   }
 
+  /**
+   * Shown when the auto-detected Google session email isn't in the Employees sheet - the
+   * common case being a Cakezone/Sharief Bhai/Frozen Bottle person who is ALSO signed into a
+   * @curefoods.in Google account, so Google auto-signs them in under the wrong identity. Offers
+   * a way out to the email+OTP flow instead of a dead end. Once they verify via OTP, the stored
+   * token takes priority over the Google session on every later visit (see resolveIdentity_).
+   */
+  function renderAccountNotFound_(email) {
+    document.getElementById('app').innerHTML =
+      '<div class="center-screen">' +
+        '<h2>Account not found</h2>' +
+        '<p>' + escapeHtml(email) + ' is not listed in the Employees sheet yet.</p>' +
+        '<p>If your registered email is different from this one (e.g. a different company email), sign in with that instead.</p>' +
+        '<button class="btn-primary" id="switch-email-btn">Sign in with a different email</button>' +
+        '<p style="margin-top:14px;font-size:13px;color:var(--muted)">Otherwise, contact your Admin to be added.</p>' +
+      '</div>';
+    document.getElementById('switch-email-btn').addEventListener('click', renderLoginScreen);
+  }
+
   function fileToDataUrl(file) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -587,7 +606,7 @@
 
   function handleIdentityResult(res) {
     if (!res.signedIn) { renderLoginScreen(); return; }
-    if (!res.known) { renderCenter('Account not found', res.email + ' is not listed in the Employees sheet yet. Contact your Admin to be added.'); return; }
+    if (!res.known) { renderAccountNotFound_(res.email); return; }
     if (!res.active) { renderCenter('Account inactive', 'Your account (' + res.email + ') is marked Inactive. Contact your Admin.'); return; }
     state.user = res;
     state.activeRole = ROLE_ORDER.filter(function (r) { return res.roles.indexOf(r) !== -1; })[0];

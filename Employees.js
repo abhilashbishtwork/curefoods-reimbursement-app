@@ -108,12 +108,21 @@ function verifyToken_(token) {
   return email;
 }
 
-/** Resolves the caller's email: Google session first, then a verified OTP token. */
+/**
+ * Resolves the caller's email: a verified OTP token first, then the Google
+ * session. Token takes priority because it's an explicit choice the person
+ * made (e.g. someone signed into a @curefoods.in Google account that isn't
+ * their real employee record - a Cakezone/Sharief Bhai person with a
+ * curefoods.in email too - used the "sign in with a different email" OTP
+ * flow instead). Without this, the ambient Google session would win again
+ * on every later visit and silently undo their choice.
+ */
 function resolveIdentity_(token) {
-  var email = Session.getActiveUser().getEmail();
-  if (email) return email;
-  if (token) return verifyToken_(token);
-  return null;
+  if (token) {
+    var tokenEmail = verifyToken_(token);
+    if (tokenEmail) return tokenEmail;
+  }
+  return Session.getActiveUser().getEmail() || null;
 }
 
 function requireActiveEmployee_(token) {
