@@ -57,12 +57,16 @@ function readClaimRows_() {
   return rows;
 }
 
-function findClaimRow_(claimId) {
-  var rows = readClaimRows_();
+/** Finds one claim by ID within an already-fetched row array — avoids a fresh full-sheet readClaimRows_() for every claim ID in a bulk loop. */
+function findClaimInRows_(rows, claimId) {
   for (var i = 0; i < rows.length; i++) {
     if (rows[i]['Claim ID'] === claimId) return rows[i];
   }
   return null;
+}
+
+function findClaimRow_(claimId) {
+  return findClaimInRows_(readClaimRows_(), claimId);
 }
 
 /* ===================== TRAVEL POLICY ENGINE ===================== */
@@ -214,9 +218,9 @@ function computeTravelAmount_(employee, payload) {
  * claims don't count as real spend. Pass excludeClaimId when recomputing after an edit to
  * a claim that's already counted in the sheet, so it isn't added twice.
  */
-function getMonthlySpend_(employeeId, category, excludeClaimId) {
+function getMonthlySpend_(employeeId, category, excludeClaimId, preloadedRows) {
   var monthKey = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM');
-  var rows = readClaimRows_();
+  var rows = preloadedRows || readClaimRows_();
   var total = 0;
   rows.forEach(function (r) {
     if (r['Employee ID'] !== employeeId) return;
@@ -366,13 +370,17 @@ function validateClaimPayload_(payload, employee) {
  * Core append-a-claim-row logic shared by single submit, batch submit, and resubmit.
  * extraCommitted lets a batch submission track same-category amounts already appended
  * earlier in the same batch, so the cap check is cumulative across the whole batch too.
+ * preloadedRows (optional) lets a multi-claim batch read the Claims sheet once up front
+ * and reuse it for every claim's monthly-spend check, instead of a fresh full-sheet read
+ * per claim (handleSubmitBatch passes it; single-claim callers omit it and this falls
+ * back to its own read, unchanged).
  */
-function appendClaimRow_(employee, payload, amount, batchId, resubmittedFrom, extraCommitted) {
+function appendClaimRow_(employee, payload, amount, batchId, resubmittedFrom, extraCommitted, preloadedRows) {
   var sheet = getClaimsSheet_();
   var claimId = nextClaimId_();
   var receiptUrl = saveReceipts_(payload.receiptDataUrls, payload.receiptFileNames, claimId, employee['Name']);
   var policyMax = getPolicyMax_(payload.category, employee['Brand Name']);
-  var priorSpend = getMonthlySpend_(employee['Employee ID'], payload.category);
+  var priorSpend = getMonthlySpend_(employee['Employee ID'], payload.category, null, preloadedRows);
   var projected = priorSpend + (extraCommitted || 0) + amount;
   var overPolicy = policyMax !== null && projected > policyMax ? 'Yes' : 'No';
   var now = new Date();
@@ -410,10 +418,13 @@ function handleSubmitBatch(payload, token) {
   if (!claims || !claims.length) throw new Error('No claims in batch.');
   var batchId = claims.length > 1 ? 'BATCH-' + Utilities.getUuid().slice(0, 8).toUpperCase() : null;
   var committedByCategory = {};
+  // Read the Claims sheet once for the whole batch instead of once per claim (getMonthlySpend_ inside
+  // appendClaimRow_ would otherwise re-read the entire sheet for every claim in the batch).
+  var preloadedRows = claims.length > 1 ? readClaimRows_() : null;
   var results = claims.map(function (p) {
     var amount = validateClaimPayload_(p, employee);
     var extra = committedByCategory[p.category] || 0;
-    var res = appendClaimRow_(employee, p, amount, batchId, null, extra);
+    var res = appendClaimRow_(employee, p, amount, batchId, null, extra, preloadedRows);
     committedByCategory[p.category] = extra + amount;
     return res;
   });
@@ -450,8 +461,8 @@ function handleListManagerReturned(token) {
 function approveClaimRow_(claim, remarks) {
   var sheet = getClaimsSheet_();
   sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Manager Approved');
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.managerRemarks).setValue(remarks || '');
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.managerActionAt).setValue(new Date());
+  // managerRemarks + managerActionAt are adjacent columns — one setValues() round-trip instead of two.
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.managerRemarks, 1, 2).setValues([[remarks || '', new Date()]]);
   notifyEmployeeOnDecision_(claim, true, remarks);
 }
 
@@ -496,8 +507,8 @@ function handleRejectClaim(payload, token) {
   if (claim['Status'] !== 'Pending Manager') throw new Error('Claim already actioned.');
   var sheet = getClaimsSheet_();
   sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Rejected');
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.managerRemarks).setValue(payload.remarks || '');
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.managerActionAt).setValue(new Date());
+  // managerRemarks + managerActionAt are adjacent columns — one setValues() round-trip instead of two.
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.managerRemarks, 1, 2).setValues([[payload.remarks || '', new Date()]]);
   notifyEmployeeOnDecision_(claim, false, payload.remarks);
   logAction_(employee._email, 'manager_reject', claim['Claim ID'], payload.remarks || '');
   return { success: true };
@@ -564,9 +575,10 @@ function handleBulkForwardToFinance(payload, token) {
   if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
   if (!payload || !payload.claimIds || !payload.claimIds.length) throw new Error('No claims selected.');
   var sheet = getClaimsSheet_();
+  var rows = readClaimRows_();
   var forwarded = [];
   payload.claimIds.forEach(function (claimId) {
-    var claim = findClaimRow_(claimId);
+    var claim = findClaimInRows_(rows, claimId);
     if (!claim || ['Manager Approved', 'Returned to Admin'].indexOf(claim['Status']) === -1) return;
     sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Ready for Finance');
     sheet.getRange(claim._rowIndex, CLAIM_COLS_.adminActionAt).setValue(new Date());
@@ -581,9 +593,8 @@ function handleBulkForwardToFinance(payload, token) {
 function returnClaimRow_(claim, newStatus, actorRole, reason) {
   var sheet = getClaimsSheet_();
   sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue(newStatus);
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnReason).setValue(reason || '');
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnedBy).setValue(actorRole);
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnedAt).setValue(new Date());
+  // returnReason/returnedBy/returnedAt are adjacent columns — one setValues() round-trip instead of three.
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.returnReason, 1, 3).setValues([[reason || '', actorRole, new Date()]]);
 }
 
 function handleManagerReturnToEmployee(payload, token) {
@@ -722,8 +733,8 @@ function handleListFinanceHistory(token) {
 function markPaidRow_(claim, transactionRef) {
   var sheet = getClaimsSheet_();
   sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Paid');
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.transactionRef).setValue(transactionRef);
-  sheet.getRange(claim._rowIndex, CLAIM_COLS_.paidAt).setValue(new Date());
+  // transactionRef + paidAt are adjacent columns — one setValues() round-trip instead of two.
+  sheet.getRange(claim._rowIndex, CLAIM_COLS_.transactionRef, 1, 2).setValues([[transactionRef, new Date()]]);
   notifyEmployeeOnPaid_(claim, transactionRef);
 }
 
@@ -746,9 +757,10 @@ function handleBulkMarkPaid(payload, token) {
   if (!payload || !payload.claimIds || !payload.claimIds.length) throw new Error('No claims selected.');
   var ref = (payload.transactionRef || '').trim();
   var scope = getFinanceScope_(employee);
+  var rows = readClaimRows_();
   var paid = [];
   payload.claimIds.forEach(function (claimId) {
-    var claim = findClaimRow_(claimId);
+    var claim = findClaimInRows_(rows, claimId);
     if (!claim || claim['Status'] !== 'Ready for Finance') return;
     if (scope.length && scope.indexOf(claim['Brand Name']) === -1) return;
     markPaidRow_(claim, ref);
@@ -808,8 +820,8 @@ function withinExpenseRange_(expenseDateVal, startDate, endDate) {
   return true;
 }
 
-function computeDashboardStats_(startDate, endDate) {
-  var rows = readClaimRows_().filter(function (r) { return withinExpenseRange_(r['Expense Date'], startDate, endDate); });
+function computeDashboardStats_(startDate, endDate, preloadedRows) {
+  var rows = preloadedRows || readClaimRows_().filter(function (r) { return withinExpenseRange_(r['Expense Date'], startDate, endDate); });
   var now = new Date();
   var pendingStatuses = [
     'Pending Manager', 'Manager Approved', 'Ready for Finance',
@@ -948,7 +960,7 @@ function handleEmailDashboardReport(payload, token) {
   var endDate = (payload && payload.endDate) || '';
   var recipient = (payload && payload.recipient) || employee._email;
   var rows = readClaimRows_().filter(function (r) { return withinExpenseRange_(r['Expense Date'], startDate, endDate); });
-  var stats = computeDashboardStats_(startDate, endDate);
+  var stats = computeDashboardStats_(startDate, endDate, rows);
   var rangeLabel = (startDate || endDate) ? (startDate || 'earliest') + ' to ' + (endDate || 'latest') : 'All time';
 
   var lines = [];

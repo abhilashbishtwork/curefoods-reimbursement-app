@@ -62,14 +62,33 @@ function readEmployeeRows_() {
   return rows;
 }
 
+/**
+ * requireActiveEmployee_ (and therefore this) runs on every single authenticated
+ * server call, and readEmployeeRows_ is a full ~3600-row sheet scan — the single
+ * most repeated, most expensive operation in the app. Caching the per-email result
+ * cuts that to near-zero for the common case of one user firing several calls in
+ * quick succession (loading a tab, switching subtabs, submitting). Kept short
+ * (seconds, not the 5-30 min typical for this kind of cache) so a manual
+ * deactivation/edit in Employees Data takes effect almost immediately rather than
+ * being masked for a long window. Misses are cached too (as '') so a bad/stale
+ * token doesn't keep re-scanning the sheet either.
+ */
+var EMPLOYEE_LOOKUP_CACHE_TTL_ = 60;
+
 function findEmployeeByEmail_(email) {
   if (!email) return null;
   var lower = email.toLowerCase();
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'emp_' + lower;
+  var cached = cache.get(cacheKey);
+  if (cached !== null) return cached === '' ? null : JSON.parse(cached);
   var rows = readEmployeeRows_();
+  var found = null;
   for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i]['Email']).toLowerCase() === lower) return rows[i];
+    if (String(rows[i]['Email']).toLowerCase() === lower) { found = rows[i]; break; }
   }
-  return null;
+  cache.put(cacheKey, found ? JSON.stringify(found) : '', EMPLOYEE_LOOKUP_CACHE_TTL_);
+  return found;
 }
 
 function getEmployeesWithRole_(role) {
