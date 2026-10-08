@@ -324,6 +324,8 @@
     Finance: { letter: 'F', tint: 'gold' }
   };
   var CATEGORY_OPTIONS = ['Local Conveyance', 'Hotel', 'Food DA', 'Flight / Outstation Travel'];
+  /** Local Conveyance vehicle types with no per-km policy rate — employee enters the actual fare paid instead of a distance. */
+  var FARE_VEHICLE_TYPES = ['Auto', 'Cab', 'Bus', 'Metro'];
   var TOKEN_KEY = 'cfi_auth_token';
   var SUBMIT_FNS_ = { handleSubmitClaim: true, handleSubmitBatch: true, handleResubmitClaim: true, handleEmailDashboardReport: true };
 
@@ -817,22 +819,30 @@
   function blankClaimEntry_() {
     return {
       _uid: uid_(), amount: '', expenseDate: todayIso_(), description: '', fileNames: [], dataUrls: [],
-      vehicleType: '', km: '', nights: '', city: '', days: '', _previewText: ''
+      vehicleType: '', km: '', fare: '', nights: '', city: '', days: '', _previewText: ''
     };
   }
 
   /** Renders the category-specific quantity field(s) that drive the auto-computed amount for a claim entry. Flight/Outstation Travel has no rate table, so it keeps the old flat amount input instead. */
   function claimEntryQuantityFieldsHtml_(entry, category) {
     if (category === 'Local Conveyance') {
+      var isFareVehicle = FARE_VEHICLE_TYPES.indexOf(entry.vehicleType) !== -1;
       return (
         '<label>Vehicle type</label>' +
         '<select class="f-vehicle" data-uid="' + entry._uid + '">' +
           '<option value=""' + (!entry.vehicleType ? ' selected' : '') + '>Select vehicle</option>' +
           '<option value="2-Wheeler"' + (entry.vehicleType === '2-Wheeler' ? ' selected' : '') + '>2-Wheeler</option>' +
           '<option value="4-Wheeler"' + (entry.vehicleType === '4-Wheeler' ? ' selected' : '') + '>4-Wheeler</option>' +
+          '<option value="Auto"' + (entry.vehicleType === 'Auto' ? ' selected' : '') + '>Auto</option>' +
+          '<option value="Cab"' + (entry.vehicleType === 'Cab' ? ' selected' : '') + '>Cab</option>' +
+          '<option value="Bus"' + (entry.vehicleType === 'Bus' ? ' selected' : '') + '>Bus</option>' +
+          '<option value="Metro"' + (entry.vehicleType === 'Metro' ? ' selected' : '') + '>Metro</option>' +
         '</select>' +
-        '<label>Distance (km)</label>' +
-        '<input class="f-km" type="number" min="0.1" step="0.1" placeholder="e.g. 12" data-uid="' + entry._uid + '" value="' + (entry.km || '') + '">'
+        (isFareVehicle
+          ? '<label>Fare amount (₹)</label>' +
+            '<input class="f-fare" type="number" min="1" step="0.01" placeholder="e.g. 150" data-uid="' + entry._uid + '" value="' + (entry.fare || '') + '">'
+          : '<label>Distance (km)</label>' +
+            '<input class="f-km" type="number" min="0.1" step="0.1" placeholder="e.g. 12" data-uid="' + entry._uid + '" value="' + (entry.km || '') + '">')
       );
     }
     if (category === 'Hotel') {
@@ -913,7 +923,7 @@
     clearTimeout(previewDebounce_[entry._uid]);
     previewDebounce_[entry._uid] = setTimeout(function () {
       var payload = { category: category };
-      if (category === 'Local Conveyance') { payload.vehicleType = entry.vehicleType; payload.km = entry.km; }
+      if (category === 'Local Conveyance') { payload.vehicleType = entry.vehicleType; payload.km = entry.km; payload.fare = entry.fare; }
       else if (category === 'Hotel') { payload.nights = entry.nights; payload.city = entry.city; }
       else if (category === 'Food DA') { payload.days = entry.days; }
       var previewEl = document.getElementById('preview-' + entry._uid);
@@ -951,13 +961,22 @@
     body.querySelectorAll('.f-vehicle').forEach(function (sel) {
       sel.addEventListener('change', function () {
         var entry = findClaimEntry_(sel.getAttribute('data-uid'));
-        if (entry) { entry.vehicleType = sel.value; schedulePreview_(entry); }
+        if (!entry) return;
+        entry.vehicleType = sel.value;
+        renderNewClaimForm(body); // swap Distance (km) vs Fare amount (₹) field for the new vehicle type
+        schedulePreview_(entry);
       });
     });
     body.querySelectorAll('.f-km').forEach(function (input) {
       input.addEventListener('input', function () {
         var entry = findClaimEntry_(input.getAttribute('data-uid'));
         if (entry) { entry.km = input.value; schedulePreview_(entry); }
+      });
+    });
+    body.querySelectorAll('.f-fare').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var entry = findClaimEntry_(input.getAttribute('data-uid'));
+        if (entry) { entry.fare = input.value; schedulePreview_(entry); }
       });
     });
     body.querySelectorAll('.f-nights').forEach(function (input) {
@@ -1038,7 +1057,9 @@
         var e = entries[i];
         if (category === 'Local Conveyance') {
           if (!e.vehicleType) { showToast('Select a vehicle type for claim ' + (i + 1) + '.'); return; }
-          if (!e.km || Number(e.km) <= 0) { showToast('Enter the distance (km) for claim ' + (i + 1) + '.'); return; }
+          if (FARE_VEHICLE_TYPES.indexOf(e.vehicleType) !== -1) {
+            if (!e.fare || Number(e.fare) <= 0) { showToast('Enter the fare amount for claim ' + (i + 1) + '.'); return; }
+          } else if (!e.km || Number(e.km) <= 0) { showToast('Enter the distance (km) for claim ' + (i + 1) + '.'); return; }
         } else if (category === 'Hotel') {
           if (!e.nights || Number(e.nights) <= 0) { showToast('Enter the number of nights for claim ' + (i + 1) + '.'); return; }
         } else if (category === 'Food DA') {
@@ -1053,7 +1074,7 @@
       submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
       var claims = entries.map(function (e) {
         var c = { category: category, expenseDate: e.expenseDate, description: e.description, receiptDataUrls: e.dataUrls, receiptFileNames: e.fileNames };
-        if (category === 'Local Conveyance') { c.vehicleType = e.vehicleType; c.km = e.km; }
+        if (category === 'Local Conveyance') { c.vehicleType = e.vehicleType; c.km = e.km; c.fare = e.fare; }
         else if (category === 'Hotel') { c.nights = e.nights; c.city = e.city; }
         else if (category === 'Food DA') { c.days = e.days; }
         else { c.amount = e.amount; }

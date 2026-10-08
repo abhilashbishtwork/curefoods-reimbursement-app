@@ -151,6 +151,9 @@ function getCategoryList_() {
   return ['Local Conveyance', 'Hotel', 'Food DA', 'Flight / Outstation Travel'];
 }
 
+/** Local Conveyance vehicle types with no per-km policy rate — employee's entered fare is trusted directly, like Flight/Outstation Travel. */
+var FARE_VEHICLE_TYPES_ = ['Auto', 'Cab', 'Bus', 'Metro'];
+
 /**
  * Computes amount + an audit-trail description for the 3 rate-based
  * categories from the employee's Company (brand) and Grade, using whatever
@@ -170,7 +173,12 @@ function computeTravelAmount_(employee, payload) {
 
   if (category === 'Local Conveyance') {
     var vehicle = payload.vehicleType;
-    if (vehicle !== '2-Wheeler' && vehicle !== '4-Wheeler') throw new Error('Select a vehicle type (2-Wheeler or 4-Wheeler).');
+    if (FARE_VEHICLE_TYPES_.indexOf(vehicle) !== -1) {
+      var fare = Number(payload.fare);
+      if (!(fare > 0)) throw new Error('Enter the fare amount.');
+      return { amount: Math.round(fare * 100) / 100, description: vehicle + ' fare' };
+    }
+    if (vehicle !== '2-Wheeler' && vehicle !== '4-Wheeler') throw new Error('Select a vehicle type.');
     var km = Number(payload.km);
     if (!(km > 0)) throw new Error('Enter the distance travelled in km.');
     var cRow = findPolicyRowByCategory_(policyRows, 'Local Conv. ' + vehicle);
