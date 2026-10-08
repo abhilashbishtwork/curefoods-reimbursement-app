@@ -10,11 +10,15 @@ function getPolicySheet_() { return getMasterSheet_().getSheetByName('Policy'); 
 function getTravelPolicySheet_() { return getMasterSheet_().getSheetByName('Travel policy'); }
 function getLogsSheet_() { return getMasterSheet_().getSheetByName('Logs'); }
 
-function splitRoles_(rolesStr) {
-  return String(rolesStr || '')
+function splitCommaList_(str) {
+  return String(str || '')
     .split(',')
-    .map(function (r) { return r.trim(); })
+    .map(function (s) { return s.trim(); })
     .filter(Boolean);
+}
+
+function splitRoles_(rolesStr) {
+  return splitCommaList_(rolesStr);
 }
 
 function hasRole_(rolesArr, role) {
@@ -49,7 +53,8 @@ function readEmployeeRows_() {
       'Department': raw[idx['Department']] || '',
       'Grade': raw[idx['Grade']] || '',
       'Role': raw[idx['Role']] || '',
-      'Status': raw[idx['Status']] || ''
+      'Status': raw[idx['Status']] || '',
+      'Finance Company': raw[idx['Finance Company']] || ''
     };
     row._rowIndex = i + 1;
     rows.push(row);

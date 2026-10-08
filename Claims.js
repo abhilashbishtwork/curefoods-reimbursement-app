@@ -620,6 +620,7 @@ function handleFinanceHold(payload, token) {
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var claim = findClaimRow_(payload.claimId);
   if (!claim) throw new Error('Claim not found.');
+  assertFinanceScope_(employee, claim);
   if (claim['Status'] !== 'Ready for Finance') throw new Error('Claim is not in the Finance queue.');
   returnClaimRow_(claim, 'On Hold', 'Finance', payload.remarks);
   logAction_(employee._email, 'finance_hold', claim['Claim ID'], payload.remarks || '');
@@ -631,6 +632,7 @@ function handleFinanceReleaseHold(payload, token) {
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var claim = findClaimRow_(payload.claimId);
   if (!claim) throw new Error('Claim not found.');
+  assertFinanceScope_(employee, claim);
   if (claim['Status'] !== 'On Hold') throw new Error('Claim is not on hold.');
   var sheet = getClaimsSheet_();
   sheet.getRange(claim._rowIndex, CLAIM_COLS_.status).setValue('Ready for Finance');
@@ -644,6 +646,7 @@ function handleFinanceReturnToAdmin(payload, token) {
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var claim = findClaimRow_(payload.claimId);
   if (!claim) throw new Error('Claim not found.');
+  assertFinanceScope_(employee, claim);
   if (['Ready for Finance', 'On Hold'].indexOf(claim['Status']) === -1) {
     throw new Error('Claim is not in the Finance queue.');
   }
@@ -653,10 +656,36 @@ function handleFinanceReturnToAdmin(payload, token) {
   return { success: true };
 }
 
+/**
+ * Which brand/company names this Finance employee is authorized to process,
+ * from the Employees Data "Finance Company" column (comma-separated, e.g. two
+ * Finance people both employed under "Curefoods" payroll but actually
+ * responsible for different brands - "Sharief Bhai, Frozen Bottle" vs
+ * "Curefoods, Cakezone"). Empty = unrestricted, so Finance accounts that
+ * haven't been assigned a scope yet keep seeing everything (back-compat).
+ */
+function getFinanceScope_(employee) {
+  return splitCommaList_(employee['Finance Company']);
+}
+
+function scopeFinanceRows_(rows, employee) {
+  var scope = getFinanceScope_(employee);
+  if (!scope.length) return rows;
+  return rows.filter(function (r) { return scope.indexOf(r['Brand Name']) !== -1; });
+}
+
+/** Guards the single-claim Finance actions (Hold/Release/Return/Mark Paid) so a scoped Finance account can't act on a claim outside its assigned companies by claim ID, even though the queue listing already hides it. */
+function assertFinanceScope_(employee, claim) {
+  var scope = getFinanceScope_(employee);
+  if (scope.length && scope.indexOf(claim['Brand Name']) === -1) {
+    throw new Error('This claim belongs to a company outside your Finance scope.');
+  }
+}
+
 function handleListFinanceHeld(token) {
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
-  var rows = readClaimRows_().filter(function (r) { return r['Status'] === 'On Hold'; });
+  var rows = scopeFinanceRows_(readClaimRows_().filter(function (r) { return r['Status'] === 'On Hold'; }), employee);
   rows.sort(function (a, b) { return new Date(a['Returned At']) - new Date(b['Returned At']); });
   attachManagerNames_(rows);
   return { success: true, claims: rows };
@@ -675,7 +704,7 @@ function attachManagerNames_(rows) {
 function handleListFinanceQueue(token) {
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
-  var rows = readClaimRows_().filter(function (r) { return r['Status'] === 'Ready for Finance'; });
+  var rows = scopeFinanceRows_(readClaimRows_().filter(function (r) { return r['Status'] === 'Ready for Finance'; }), employee);
   rows.sort(function (a, b) { return new Date(a['Admin Action At']) - new Date(b['Admin Action At']); });
   attachManagerNames_(rows);
   return { success: true, claims: rows };
@@ -684,7 +713,7 @@ function handleListFinanceQueue(token) {
 function handleListFinanceHistory(token) {
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
-  var rows = readClaimRows_().filter(function (r) { return r['Status'] === 'Paid'; });
+  var rows = scopeFinanceRows_(readClaimRows_().filter(function (r) { return r['Status'] === 'Paid'; }), employee);
   rows.sort(function (a, b) { return new Date(b['Paid At']) - new Date(a['Paid At']); });
   attachManagerNames_(rows);
   return { success: true, claims: rows };
@@ -703,6 +732,7 @@ function handleMarkPaid(payload, token) {
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var claim = findClaimRow_(payload.claimId);
   if (!claim) throw new Error('Claim not found.');
+  assertFinanceScope_(employee, claim);
   if (['Ready for Finance', 'On Hold'].indexOf(claim['Status']) === -1) throw new Error('Claim is not in the Finance queue.');
   var ref = (payload.transactionRef || '').trim();
   markPaidRow_(claim, ref);
@@ -715,10 +745,12 @@ function handleBulkMarkPaid(payload, token) {
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   if (!payload || !payload.claimIds || !payload.claimIds.length) throw new Error('No claims selected.');
   var ref = (payload.transactionRef || '').trim();
+  var scope = getFinanceScope_(employee);
   var paid = [];
   payload.claimIds.forEach(function (claimId) {
     var claim = findClaimRow_(claimId);
     if (!claim || claim['Status'] !== 'Ready for Finance') return;
+    if (scope.length && scope.indexOf(claim['Brand Name']) === -1) return;
     markPaidRow_(claim, ref);
     logAction_(employee._email, 'finance_bulk_mark_paid', claimId, 'ref=' + (ref || '(none)'));
     paid.push(claimId);
@@ -736,9 +768,9 @@ function handleExportFinanceCsv(payload, token) {
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Finance')) throw new Error('Finance role required.');
   var scope = (payload && payload.scope) || 'queue';
-  var rows = readClaimRows_().filter(function (r) {
+  var rows = scopeFinanceRows_(readClaimRows_().filter(function (r) {
     return scope === 'history' ? r['Status'] === 'Paid' : r['Status'] === 'Ready for Finance';
-  });
+  }), employee);
   var header = ['Claim ID', 'Employee ID', 'Employee Name', 'Brand Name', 'Department', 'Employee Email', 'Category', 'Amount', 'Expense Date', 'Status', 'Transaction Ref'];
   var lines = [header.join(',')];
   rows.forEach(function (r) {

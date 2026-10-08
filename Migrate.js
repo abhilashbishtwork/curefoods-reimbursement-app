@@ -255,3 +255,44 @@ function migrateSchemaV8() {
   claims.getRange(2, CLAIM_COLS_.status, lastRow - 1, 1).setDataValidation(rule);
   Logger.log('Status column validation replaced. Allowed values: ' + allStatuses.join(', '));
 }
+
+/**
+ * Schema v9: adds a "Finance Company" column to Employees Data, so Finance
+ * accounts can be scoped to the brand(s) they actually process instead of
+ * seeing every company's claims just because their own Role is "Finance"
+ * (the "Company" column is their own employer/payroll entity, not what they
+ * approve - e.g. Mayank Agarwal and Vivek Rai are both payrolled under
+ * "Curefoods" but Mayank handles Sharief Bhai + Frozen Bottle finance while
+ * Vivek handles Curefoods + Cakezone). Comma-separated, same convention as
+ * the Role column (see splitCommaList_/getFinanceScope_). Blank = unrestricted,
+ * so every other Finance account is unaffected until explicitly scoped.
+ * Also seeds the two known cases from this migration's own ask (2026-10-08).
+ * Safe to re-run.
+ */
+function migrateSchemaV9() {
+  var sheet = getEmployeesSheet_();
+  var headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  var headers = headerRange.getValues()[0];
+  if (headers.indexOf('Finance Company') === -1) {
+    var col = sheet.getLastColumn() + 1;
+    sheet.getRange(1, col).setValue('Finance Company');
+    headers.push('Finance Company');
+  }
+  var financeCompanyCol = headers.indexOf('Finance Company') + 1;
+  var empCodeCol = headers.indexOf('Emp Code') + 1;
+
+  var seed = {
+    'CFD11351': 'Sharief Bhai, Frozen Bottle', // Mayank Agarwal
+    'CFD11233': 'Curefoods, Cakezone'          // Vivek Rai
+  };
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  var seeded = [];
+  values.forEach(function (row, i) {
+    var empCode = row[empCodeCol - 1];
+    if (seed.hasOwnProperty(empCode)) {
+      sheet.getRange(2 + i, financeCompanyCol).setValue(seed[empCode]);
+      seeded.push(empCode);
+    }
+  });
+  Logger.log('Employees Data headers now: ' + headers.join(', ') + '. Seeded Finance Company for: ' + seeded.join(', '));
+}
