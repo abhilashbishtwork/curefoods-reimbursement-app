@@ -1437,23 +1437,24 @@
   function managerBucketHtml_(bucket) {
     var catCounts = {};
     bucket.claims.forEach(function (c) { catCounts[c['Category']] = (catCounts[c['Category']] || 0) + 1; });
-    var catSummary = Object.keys(catCounts).map(function (cat) { return cat + ' x' + catCounts[cat]; }).join(', ');
+    var catSummary = Object.keys(catCounts).map(function (cat) { return escapeHtml(cat) + ' x' + catCounts[cat]; }).join(', ');
     var overNote = bucket.overPolicyCount ? (' · ' + bucket.overPolicyCount + ' over-policy (excluded from bulk approve)') : '';
+    var safeKey = escapeHtml(String(bucket.key || ''));
     var claimsHtml = bucket.claims.map(function (c) {
       return claimCardHtml(c, { extraHtml: managerClaimActionsHtml_(c), editableAmount: true });
     }).join('');
     return (
       '<div class="card manager-bucket">' +
         '<div class="finance-row-top">' +
-          '<span class="claim-check"><input type="checkbox" class="bucket-select" data-key="' + bucket.key + '"></span>' +
+          '<span class="claim-check"><input type="checkbox" class="bucket-select" data-key="' + safeKey + '"></span>' +
           '<div class="finance-row-main">' +
             '<div class="finance-row-person">' + escapeHtml(bucket.employeeName || '') + '</div>' +
             '<div class="finance-row-meta">' + bucket.claims.length + ' claim' + (bucket.claims.length > 1 ? 's' : '') + ' · ' + catSummary + overNote + '</div>' +
           '</div>' +
           '<div class="claim-amount">₹' + bucket.totalAmount.toLocaleString('en-IN') + '</div>' +
         '</div>' +
-        '<button type="button" class="btn-outline manager-bucket-toggle" data-key="' + bucket.key + '" style="margin-top:10px">Show claims</button>' +
-        '<div class="manager-bucket-claims" data-key="' + bucket.key + '" style="display:none; margin-top:10px">' + claimsHtml + '</div>' +
+        '<button type="button" class="btn-outline manager-bucket-toggle" data-key="' + safeKey + '" style="margin-top:10px">Show claims</button>' +
+        '<div class="manager-bucket-claims" data-key="' + safeKey + '" style="display:none; margin-top:10px">' + claimsHtml + '</div>' +
       '</div>'
     );
   }
