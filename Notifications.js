@@ -2,7 +2,20 @@ function claimSummary_(claim) {
   return claim['Claim ID'] + ' - ' + claim['Category'] + ' - Rs.' + claim['Amount'] + ' (' + claim['Employee Name'] + ')';
 }
 
+/**
+ * Kill switch for every claim-lifecycle notification email (submit/approve/
+ * reject/forward-to-finance/paid/return, at every notify*_ function below —
+ * they all funnel through here). Flip to true to turn them back on.
+ * Does NOT affect the OTP login email (handleRequestOtp in Employees.js,
+ * sent directly via MailApp, required for login) or the Admin's manual
+ * "Email Report" button (handleEmailDashboardReport in Claims.js, an
+ * explicit one-off send, not an automatic notification) - ask if those
+ * should be disabled too.
+ */
+var NOTIFICATIONS_ENABLED_ = false;
+
 function notifySafe_(to, subject, body) {
+  if (!NOTIFICATIONS_ENABLED_) return;
   if (!to) return;
   try {
     MailApp.sendEmail({ to: to, subject: subject, body: body });
