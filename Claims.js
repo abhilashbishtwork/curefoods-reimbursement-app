@@ -703,11 +703,17 @@ function handleListFinanceHeld(token) {
 }
 
 /** Enriches claim rows with the manager's display name (claims only store Manager Email). */
+/** Looks up each row's Manager Name via the cached per-email employee lookup instead of a full Employees-sheet scan — rows usually span only a handful of distinct managers, so this is a few cache hits instead of a ~3600-row read every time a Finance tab loads. */
 function attachManagerNames_(rows) {
-  var mgrMap = {};
-  readEmployeeRows_().forEach(function (e) { mgrMap[String(e['Email']).toLowerCase()] = e['Name']; });
+  var nameByEmail = {};
   rows.forEach(function (r) {
-    r['Manager Name'] = mgrMap[String(r['Manager Email']).toLowerCase()] || r['Manager Email'];
+    var mgrEmail = r['Manager Email'];
+    var key = String(mgrEmail || '').toLowerCase();
+    if (!nameByEmail.hasOwnProperty(key)) {
+      var mgr = findEmployeeByEmail_(mgrEmail);
+      nameByEmail[key] = (mgr && mgr['Name']) || mgrEmail;
+    }
+    r['Manager Name'] = nameByEmail[key];
   });
   return rows;
 }

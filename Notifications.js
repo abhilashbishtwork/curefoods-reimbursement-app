@@ -25,6 +25,7 @@ function notifySafe_(to, subject, body) {
 }
 
 function notifyManagerOnSubmit_(claim) {
+  if (!NOTIFICATIONS_ENABLED_) return;
   if (!claim['Manager Email']) return;
   notifySafe_(
     claim['Manager Email'],
@@ -34,6 +35,7 @@ function notifyManagerOnSubmit_(claim) {
 }
 
 function notifyEmployeeOnDecision_(claim, approved, remarks) {
+  if (!NOTIFICATIONS_ENABLED_) return;
   notifySafe_(
     claim['Employee Email'],
     'Your claim ' + claim['Claim ID'] + ' was ' + (approved ? 'approved' : 'rejected'),
@@ -44,6 +46,7 @@ function notifyEmployeeOnDecision_(claim, approved, remarks) {
 }
 
 function notifyFinanceOnForward_(claim) {
+  if (!NOTIFICATIONS_ENABLED_) return; // skip the full Employees-sheet scan below entirely while notifications are off
   var financeEmails = getEmployeesWithRole_('Finance');
   financeEmails.forEach(function (email) {
     notifySafe_(
@@ -55,6 +58,7 @@ function notifyFinanceOnForward_(claim) {
 }
 
 function notifyEmployeeOnPaid_(claim, transactionRef) {
+  if (!NOTIFICATIONS_ENABLED_) return;
   notifySafe_(
     claim['Employee Email'],
     'Your claim ' + claim['Claim ID'] + ' has been paid',
@@ -63,6 +67,7 @@ function notifyEmployeeOnPaid_(claim, transactionRef) {
 }
 
 function notifyEmployeeOnReturn_(claim, reason) {
+  if (!NOTIFICATIONS_ENABLED_) return;
   notifySafe_(
     claim['Employee Email'],
     'Your claim ' + claim['Claim ID'] + ' was sent back for changes',
@@ -73,6 +78,7 @@ function notifyEmployeeOnReturn_(claim, reason) {
 }
 
 function notifyManagerOnReturn_(claim, reason) {
+  if (!NOTIFICATIONS_ENABLED_) return;
   notifySafe_(
     claim['Manager Email'],
     'Claim ' + claim['Claim ID'] + ' was sent back to you by Admin',
@@ -83,6 +89,7 @@ function notifyManagerOnReturn_(claim, reason) {
 }
 
 function notifyAdminOnReturn_(claim, reason) {
+  if (!NOTIFICATIONS_ENABLED_) return; // skip the full Employees-sheet scan below entirely while notifications are off
   var adminEmails = getEmployeesWithRole_('Admin');
   adminEmails.forEach(function (email) {
     notifySafe_(
