@@ -752,8 +752,9 @@
         (c['Resubmitted From'] ? '<div class="claim-meta">Resubmitted from ' + c['Resubmitted From'] + '</div>' : '') +
         (c['Receipt URL'] ? '<div class="claim-receipt">' +
           c['Receipt URL'].split('|').map(function (u, i, arr) {
-            return '<a href="' + u + '" target="_blank">View receipt' + (arr.length > 1 ? ' ' + (i + 1) : '') + '</a>';
-          }).join(' &nbsp;·&nbsp; ') +
+            var safeUrl = safeReceiptUrl_(u);
+            return safeUrl ? '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">View receipt' + (arr.length > 1 ? ' ' + (i + 1) : '') + '</a>' : '';
+          }).filter(Boolean).join(' &nbsp;·&nbsp; ') +
         '</div>' : '') +
         (c['Manager Remarks'] ? '<div class="claim-remarks">Remarks: ' + escapeHtml(c['Manager Remarks']) + '</div>' : '') +
         (c['Return Reason'] ? '<div class="claim-remarks">Returned by ' + escapeHtml(c['Returned By'] || '') + ': ' + escapeHtml(c['Return Reason']) + '</div>' : '') +
@@ -767,6 +768,12 @@
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+
+  /** Receipt URLs are always Drive-generated (saveReceipt_'s file.getUrl()), but the Claims sheet cell they're stored in is directly sheet-editable - only build a link for an actual http(s) URL, and escape it for the href attribute either way. */
+  function safeReceiptUrl_(u) {
+    var s = String(u || '').trim();
+    return /^https?:\/\//i.test(s) ? escapeHtml(s) : '';
   }
 
   function subtabsHtml(tabs, activeKey) {
@@ -1671,8 +1678,9 @@
         '</div>' +
         (c['Receipt URL'] ? '<div class="claim-receipt">' +
           c['Receipt URL'].split('|').map(function (u, i, arr) {
-            return '<a href="' + u + '" target="_blank">View bill' + (arr.length > 1 ? ' ' + (i + 1) : '') + '</a>';
-          }).join(' &nbsp;·&nbsp; ') +
+            var safeUrl = safeReceiptUrl_(u);
+            return safeUrl ? '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">View bill' + (arr.length > 1 ? ' ' + (i + 1) : '') + '</a>' : '';
+          }).filter(Boolean).join(' &nbsp;·&nbsp; ') +
         '</div>' : '') +
         (opts.extraHtml || '') +
       '</div>'
