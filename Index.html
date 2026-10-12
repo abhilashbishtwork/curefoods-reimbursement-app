@@ -1405,6 +1405,59 @@
   }
 
   // ---------- Manager ----------
+
+  /** Groups pending claims by employee so the manager scans one row per person instead of one card per claim. */
+  function groupClaimsByEmployee_(claims) {
+    var buckets = {}, order = [];
+    claims.forEach(function (c) {
+      var key = c['Employee ID'] || c['Employee Email'];
+      if (!buckets[key]) {
+        buckets[key] = { key: key, employeeName: c['Employee Name'], claims: [], totalAmount: 0, overPolicyCount: 0 };
+        order.push(key);
+      }
+      var b = buckets[key];
+      b.claims.push(c);
+      b.totalAmount += Number(c['Amount']) || 0;
+      if (c['Over Policy'] === 'Yes') b.overPolicyCount++;
+    });
+    return order.map(function (k) { return buckets[k]; });
+  }
+
+  function managerClaimActionsHtml_(c) {
+    return (
+      '<div class="btn-row">' +
+        '<button class="btn-outline btn-reject" data-id="' + c['Claim ID'] + '">Reject</button>' +
+        '<button class="btn-outline btn-return-employee" data-id="' + c['Claim ID'] + '">Return</button>' +
+        '<button class="btn-primary btn-approve" data-id="' + c['Claim ID'] + '" style="margin-top:0">Approve</button>' +
+      '</div>'
+    );
+  }
+
+  /** One collapsed per-employee row for the Manager Pending tab — checkbox feeds the "Approve selected" bulk bar; "Show claims" reveals the normal claim cards (with their own Approve/Reject/Return) underneath, already in the DOM so the usual event wiring picks them up without a re-render. */
+  function managerBucketHtml_(bucket) {
+    var catCounts = {};
+    bucket.claims.forEach(function (c) { catCounts[c['Category']] = (catCounts[c['Category']] || 0) + 1; });
+    var catSummary = Object.keys(catCounts).map(function (cat) { return cat + ' x' + catCounts[cat]; }).join(', ');
+    var overNote = bucket.overPolicyCount ? (' · ' + bucket.overPolicyCount + ' over-policy (excluded from bulk approve)') : '';
+    var claimsHtml = bucket.claims.map(function (c) {
+      return claimCardHtml(c, { extraHtml: managerClaimActionsHtml_(c), editableAmount: true });
+    }).join('');
+    return (
+      '<div class="card manager-bucket">' +
+        '<div class="finance-row-top">' +
+          '<span class="claim-check"><input type="checkbox" class="bucket-select" data-key="' + bucket.key + '"></span>' +
+          '<div class="finance-row-main">' +
+            '<div class="finance-row-person">' + escapeHtml(bucket.employeeName || '') + '</div>' +
+            '<div class="finance-row-meta">' + bucket.claims.length + ' claim' + (bucket.claims.length > 1 ? 's' : '') + ' · ' + catSummary + overNote + '</div>' +
+          '</div>' +
+          '<div class="claim-amount">₹' + bucket.totalAmount.toLocaleString('en-IN') + '</div>' +
+        '</div>' +
+        '<button type="button" class="btn-outline manager-bucket-toggle" data-key="' + bucket.key + '" style="margin-top:10px">Show claims</button>' +
+        '<div class="manager-bucket-claims" data-key="' + bucket.key + '" style="display:none; margin-top:10px">' + claimsHtml + '</div>' +
+      '</div>'
+    );
+  }
+
   function renderManagerPortal(content) {
     var sub = state.activeSubtab.manager || 'pending';
     content.innerHTML =
@@ -1423,22 +1476,39 @@
         ? res.claims.filter(function (c) { return c['Status'] === 'Pending Manager'; })
         : res.claims;
       if (!claims.length) { body.innerHTML = '<div class="empty-state">Nothing here.</div>'; return; }
-      var bulkBar = '';
+
+      var approveAllBar = '';
       if (sub === 'pending' && claims.length > 1 && claims.some(function (c) { return c['Over Policy'] !== 'Yes'; })) {
-        bulkBar = '<div class="bulk-bar"><button class="btn-primary" id="bulk-approve" style="margin-top:0">Approve all within policy</button></div>';
+        approveAllBar = '<div class="bulk-bar"><button class="btn-primary" id="bulk-approve" style="margin-top:0">Approve all within policy</button></div>';
       }
-      body.innerHTML = claims.map(function (c) {
-        var actions = '';
-        if (actionable) {
-          actions =
-            '<div class="btn-row">' +
-              '<button class="btn-outline btn-reject" data-id="' + c['Claim ID'] + '">Reject</button>' +
-              '<button class="btn-outline btn-return-employee" data-id="' + c['Claim ID'] + '">Return</button>' +
-              '<button class="btn-primary btn-approve" data-id="' + c['Claim ID'] + '" style="margin-top:0">Approve</button>' +
-            '</div>';
-        }
-        return claimCardHtml(c, { extraHtml: actions, editableAmount: actionable });
-      }).join('') + bulkBar;
+
+      var buckets = null;
+      if (sub === 'pending') {
+        buckets = groupClaimsByEmployee_(claims);
+        body.innerHTML = approveAllBar + buckets.map(managerBucketHtml_).join('') +
+          '<div class="bulk-bar"><button class="btn-primary" id="bulk-approve-selected" style="margin-top:0">Approve selected</button></div>';
+      } else {
+        body.innerHTML = claims.map(function (c) {
+          var actions = actionable ? managerClaimActionsHtml_(c) : '';
+          return claimCardHtml(c, { extraHtml: actions, editableAmount: actionable });
+        }).join('') + approveAllBar;
+      }
+
+      body.querySelectorAll('.manager-bucket-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var key = btn.getAttribute('data-key');
+          var panel = body.querySelector('.manager-bucket-claims[data-key="' + key + '"]');
+          var showing = panel.style.display !== 'none';
+          panel.style.display = showing ? 'none' : 'block';
+          btn.textContent = showing ? 'Show claims' : 'Hide claims';
+        });
+      });
+      body.querySelectorAll('.bucket-select').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          state.selectedManagerBuckets = state.selectedManagerBuckets || {};
+          state.selectedManagerBuckets[cb.getAttribute('data-key')] = cb.checked;
+        });
+      });
       body.querySelectorAll('.btn-edit-amount-link').forEach(function (btn) {
         btn.addEventListener('click', function () {
           var id = btn.getAttribute('data-claim-id');
@@ -1482,6 +1552,28 @@
             showToast('Approved ' + res.approvedCount + (res.skippedOverPolicyIds.length ? ', skipped ' + res.skippedOverPolicyIds.length + ' over-policy' : '') + '.');
             renderPortal();
           }).catch(function (err) { showToast(err.message || 'Failed.'); bulkBtn.disabled = false; });
+        });
+      }
+      var bulkSelectedBtn = document.getElementById('bulk-approve-selected');
+      if (bulkSelectedBtn) {
+        bulkSelectedBtn.addEventListener('click', function () {
+          var selected = state.selectedManagerBuckets || {};
+          var selectedKeys = Object.keys(selected).filter(function (k) { return selected[k]; });
+          if (!selectedKeys.length) { showToast('Select at least one employee first.'); return; }
+          var claimIds = [];
+          selectedKeys.forEach(function (key) {
+            var bucket = buckets.filter(function (b) { return String(b.key) === key; })[0];
+            if (!bucket) return;
+            bucket.claims.forEach(function (c) { if (c['Over Policy'] !== 'Yes') claimIds.push(c['Claim ID']); });
+          });
+          if (!claimIds.length) { showToast('Everything selected is over-policy — review those individually.'); return; }
+          bulkSelectedBtn.disabled = true; bulkSelectedBtn.textContent = 'Approving…';
+          callServer('handleBulkApproveClaims', [{ claimIds: claimIds }]).then(function (res) {
+            playDone();
+            showToast('Approved ' + res.approvedCount + (res.skippedOverPolicyIds.length ? ', skipped ' + res.skippedOverPolicyIds.length + ' over-policy' : '') + '.');
+            state.selectedManagerBuckets = {};
+            renderPortal();
+          }).catch(function (err) { showToast(err.message || 'Failed.'); bulkSelectedBtn.disabled = false; bulkSelectedBtn.textContent = 'Approve selected'; });
         });
       }
     }).catch(function (err) { body.innerHTML = '<div class="empty-state">' + (err.message || 'Failed to load.') + '</div>'; });

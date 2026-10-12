@@ -530,6 +530,30 @@ function handleBulkApproveWithinPolicy(token) {
   return { success: true, approvedCount: approved.length, approvedIds: approved, skippedOverPolicyIds: skipped };
 }
 
+/**
+ * Approves a manager-chosen subset of their own pending claims (the Manager
+ * Pending tab's per-employee bucket checkboxes + "Approve selected", distinct
+ * from handleBulkApproveWithinPolicy's all-of-my-team button). Same
+ * ownership/status checks as a single approve, and still silently skips any
+ * over-policy claim in the selection rather than approving it.
+ */
+function handleBulkApproveClaims(payload, token) {
+  var employee = requireActiveEmployee_(token);
+  if (!hasRole_(employee._roles, 'Manager')) throw new Error('Manager role required.');
+  if (!payload || !payload.claimIds || !payload.claimIds.length) throw new Error('No claims selected.');
+  var rows = readClaimRows_();
+  var approved = [], skipped = [];
+  payload.claimIds.forEach(function (claimId) {
+    var claim = findClaimInRows_(rows, claimId);
+    if (!claim || claim['Manager Email'] !== employee._email || claim['Status'] !== 'Pending Manager') return;
+    if (claim['Over Policy'] === 'Yes') { skipped.push(claimId); return; }
+    approveClaimRow_(claim, 'Bulk-approved (selected)');
+    logAction_(employee._email, 'manager_bulk_approve_selected', claimId, '');
+    approved.push(claimId);
+  });
+  return { success: true, approvedCount: approved.length, approvedIds: approved, skippedOverPolicyIds: skipped };
+}
+
 function handleListAdminQueue(token) {
   var employee = requireActiveEmployee_(token);
   if (!hasRole_(employee._roles, 'Admin')) throw new Error('Admin role required.');
