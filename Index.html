@@ -1669,6 +1669,11 @@
           '</div>' +
           '<div class="claim-amount">₹' + Number(c['Amount']).toLocaleString('en-IN') + '</div>' +
         '</div>' +
+        (c['Receipt URL'] ? '<div class="claim-receipt">' +
+          c['Receipt URL'].split('|').map(function (u, i, arr) {
+            return '<a href="' + u + '" target="_blank">View bill' + (arr.length > 1 ? ' ' + (i + 1) : '') + '</a>';
+          }).join(' &nbsp;·&nbsp; ') +
+        '</div>' : '') +
         (opts.extraHtml || '') +
       '</div>'
     );
