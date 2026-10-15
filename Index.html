@@ -1274,6 +1274,12 @@
     return (state.bulkEntries || []).filter(function (e) { return e._uid === uid; })[0];
   }
 
+  function bulkEntryFileStatusHtml_(entry) {
+    if (entry.fileNames.length) return '✓ ' + entry.fileNames.map(escapeHtml).join(', ');
+    if (entry.expectedReceiptFileName) return 'Expecting "' + escapeHtml(entry.expectedReceiptFileName) + '" — upload it above, or attach manually below.';
+    return '';
+  }
+
   function bulkEntryHtml_(entry, idx) {
     return (
       '<div class="claim-entry" data-uid="' + entry._uid + '">' +
@@ -1283,7 +1289,7 @@
         '</div>' +
         '<label>Receipt (photo, PDF, or Excel — attach as many as you need)</label>' +
         '<input class="f-receipt" type="file" multiple data-uid="' + entry._uid + '" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" capture="environment">' +
-        '<div class="claim-file-status" id="file-status-' + entry._uid + '"></div>' +
+        '<div class="claim-file-status" id="file-status-' + entry._uid + '">' + bulkEntryFileStatusHtml_(entry) + '</div>' +
       '</div>'
     );
   }
@@ -1329,8 +1335,10 @@
             var entry = blankClaimEntry_();
             entry.category = r.category; entry.amount = r.amount;
             entry.expenseDate = r.expenseDate; entry.description = r.description;
+            entry.expectedReceiptFileName = r.receiptFileName || '';
             return entry;
           });
+          state.bulkReceiptsMessage = '';
           renderPortal();
         }).catch(function (err) {
           statusEl.textContent = '';
@@ -1342,10 +1350,18 @@
     }
 
     var entries = state.bulkEntries;
+    var namedCount = entries.filter(function (e) { return e.expectedReceiptFileName; }).length;
     body.innerHTML =
       '<div class="card">' +
         '<h3>Review ' + entries.length + ' claim' + (entries.length > 1 ? 's' : '') + ' from your file</h3>' +
         '<p class="claim-meta">Attach a receipt for each claim below, then submit.</p>' +
+        (namedCount
+          ? '<div class="card" style="margin:14px 0; background:#f7f7fb">' +
+              '<label>Upload all invoices at once (' + namedCount + ' row' + (namedCount > 1 ? 's' : '') + ' named a file below)</label>' +
+              '<input id="bulk-receipts-input" type="file" multiple accept="image/*,.pdf,.xls,.xlsx,.doc,.docx">' +
+              '<div id="bulk-receipts-status" class="claim-meta">' + escapeHtml(state.bulkReceiptsMessage || '') + '</div>' +
+            '</div>'
+          : '') +
         entries.map(function (e, i) { return bulkEntryHtml_(e, i); }).join('') +
         '<div class="btn-row">' +
           '<button class="btn-outline" id="bulk-cancel">Cancel</button>' +
@@ -1367,14 +1383,50 @@
         Promise.all(files.map(function (f) { return receiptFileToPayloadFields(f); })).then(function (results) {
           results.forEach(function (r) { entry.dataUrls.push(r.dataUrl); entry.fileNames.push(r.fileName); });
           input.value = '';
-          if (statusEl) statusEl.textContent = '✓ ' + entry.fileNames.map(escapeHtml).join(', ');
+          if (statusEl) statusEl.textContent = bulkEntryFileStatusHtml_(entry);
         }).catch(function () {
           if (statusEl) statusEl.textContent = 'Could not read one of those files — try again.';
         });
       });
     });
+    var bulkReceiptsInput = document.getElementById('bulk-receipts-input');
+    if (bulkReceiptsInput) {
+      bulkReceiptsInput.addEventListener('change', function () {
+        var files = Array.prototype.slice.call(bulkReceiptsInput.files || []);
+        var statusEl = document.getElementById('bulk-receipts-status');
+        if (!files.length) return;
+        if (statusEl) statusEl.textContent = 'Processing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…';
+        Promise.all(files.map(function (f) { return receiptFileToPayloadFields(f).then(function (r) { return { result: r, originalName: f.name }; }); }))
+          .then(function (results) {
+            var entries = state.bulkEntries || [];
+            var byLowerName = {};
+            entries.forEach(function (e) {
+              if (e.expectedReceiptFileName) byLowerName[e.expectedReceiptFileName.toLowerCase()] = e;
+            });
+            var matchedCount = 0, unmatched = [];
+            results.forEach(function (item) {
+              var entry = byLowerName[item.originalName.toLowerCase()];
+              if (entry) {
+                entry.dataUrls.push(item.result.dataUrl);
+                entry.fileNames.push(item.result.fileName);
+                matchedCount++;
+              } else {
+                unmatched.push(item.originalName);
+              }
+            });
+            bulkReceiptsInput.value = '';
+            var msg = matchedCount + ' of ' + results.length + ' file' + (results.length > 1 ? 's' : '') + ' matched to a row.';
+            if (unmatched.length) msg += ' Not matched (no row names these exactly): ' + unmatched.join(', ') + '.';
+            state.bulkReceiptsMessage = msg;
+            renderPortal();
+          }).catch(function () {
+            if (statusEl) statusEl.textContent = 'Could not read one of those files — try again.';
+          });
+      });
+    }
     document.getElementById('bulk-cancel').addEventListener('click', function () {
       state.bulkEntries = null;
+      state.bulkReceiptsMessage = '';
       renderPortal();
     });
     var submitBtn = document.getElementById('bulk-submit-all');
@@ -1395,6 +1447,7 @@
         playSwoosh();
         showToast(res.claimIds.length + ' claims submitted.');
         state.bulkEntries = null;
+        state.bulkReceiptsMessage = '';
         state.activeSubtab.employee = 'mine';
         renderPortal();
       }).catch(function (err) {

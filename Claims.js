@@ -1036,7 +1036,7 @@ function handleEmailDashboardReport(payload, token) {
 
 // ---------- Bulk upload (Employee) ----------
 
-var BULK_TEMPLATE_HEADERS_ = ['Category', 'Amount', 'Expense Date', 'Description'];
+var BULK_TEMPLATE_HEADERS_ = ['Category', 'Amount', 'Expense Date', 'Description', 'Receipt File Name'];
 
 /**
  * Builds the downloadable bulk-upload template as a real .xlsx: a fresh Google Sheet
@@ -1056,7 +1056,7 @@ function handleGetBulkTemplate(token) {
 
   var categories = getCategoryList_();
   var cache = CacheService.getScriptCache();
-  var cacheKey = 'bulk_template_v1_' + Utilities.base64EncodeWebSafe(categories.join('|'));
+  var cacheKey = 'bulk_template_v2_' + Utilities.base64EncodeWebSafe(categories.join('|'));
   var cached = cache.get(cacheKey);
   if (cached) {
     return { success: true, base64: cached, fileName: 'Curefoods_Bulk_Claim_Template.xlsx' };
@@ -1066,10 +1066,15 @@ function handleGetBulkTemplate(token) {
   var sheet = ss.getSheets()[0];
   sheet.setName('Claims');
   sheet.getRange(1, 1, 1, BULK_TEMPLATE_HEADERS_.length).setValues([BULK_TEMPLATE_HEADERS_]).setFontWeight('bold');
-  sheet.getRange(2, 1, 1, 4).setValues([[
+  sheet.getRange(2, 1, 1, 5).setValues([[
     categories[0] || 'Other', 1500, Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd'),
-    'Example row - delete before uploading'
+    'Example row - delete before uploading', 'example_invoice.pdf'
   ]]);
+  sheet.getRange(1, 5, 1, 1).setNote(
+    'Optional. If you plan to upload all your invoice files at once, name each file to match what you put ' +
+    'here exactly (including the extension) and the app will attach it to this row automatically. Leave blank ' +
+    'to attach the receipt manually in the app instead.'
+  );
   if (categories.length) {
     var catRule = SpreadsheetApp.newDataValidation().requireValueInList(categories, true).setAllowInvalid(false).build();
     sheet.getRange(2, 1, 200, 1).setDataValidation(catRule);
@@ -1152,7 +1157,10 @@ function handleParseBulkUpload(payload, token) {
       } else {
         throw new Error('Row ' + rowNum + ': Expense Date must be a valid date (YYYY-MM-DD).');
       }
-      rows.push({ category: category, amount: amount, expenseDate: expenseDate, description: String(r[3] || '').trim() });
+      rows.push({
+        category: category, amount: amount, expenseDate: expenseDate, description: String(r[3] || '').trim(),
+        receiptFileName: String(r[4] || '').trim()
+      });
     }
     if (!rows.length) throw new Error('No data rows found below the header. Fill in at least one row and re-upload.');
     if (rows.length > 100) throw new Error('Too many rows (' + rows.length + '). Please upload at most 100 claims at a time.');
